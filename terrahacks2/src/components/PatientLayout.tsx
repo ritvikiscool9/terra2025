@@ -36,6 +36,10 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
   const [patientData, setPatientData] = useState<PatientData | null>(null);
   const [isLoadingPatient, setIsLoadingPatient] = useState(false);
   const [nftCount, setNftCount] = useState(0);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editedEmail, setEditedEmail] = useState('');
+  const [editedPhone, setEditedPhone] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
     if (currentPage === 'routines') {
@@ -172,6 +176,66 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
   const formatWalletAddress = (address: string) => {
     if (!address) return 'Not connected';
     return `${address.slice(0, 6)}...${address.slice(-6)}`;
+  };
+
+  const handleEditProfile = () => {
+    if (patientData) {
+      setEditedEmail(patientData.email);
+      setEditedPhone(patientData.phone || '');
+      setIsEditingProfile(true);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!patientData) return;
+
+    // Basic validation
+    if (!editedEmail.trim()) {
+      alert('Email is required');
+      return;
+    }
+
+    if (!editedEmail.includes('@') || !editedEmail.includes('.')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    try {
+      setIsSavingProfile(true);
+      
+      const { error } = await supabase
+        .from('patients')
+        .update({
+          email: editedEmail.trim(),
+          phone: editedPhone.trim()
+        })
+        .eq('id', patientData.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setPatientData({
+        ...patientData,
+        email: editedEmail.trim(),
+        phone: editedPhone.trim()
+      });
+
+      setIsEditingProfile(false);
+      
+      // Show success message
+      alert('Profile updated successfully!');
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      alert('Failed to update profile. Please try again.');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingProfile(false);
+    setEditedEmail('');
+    setEditedPhone('');
   };
 
   const renderContent = () => {
@@ -686,15 +750,36 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                         }}>
                           Email
                         </label>
-                        <p style={{ 
-                          color: '#6b7280', 
-                          fontSize: '14px', 
-                          margin: '0',
-                          padding: '8px 0',
-                          borderBottom: '1px solid #f3f4f6'
-                        }}>
-                          {patientData.email}
-                        </p>
+                        {isEditingProfile ? (
+                          <input
+                            type="email"
+                            value={editedEmail}
+                            onChange={(e) => setEditedEmail(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              border: '2px solid #dbeafe',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              color: '#374151',
+                              backgroundColor: 'white',
+                              outline: 'none',
+                              transition: 'border-color 0.2s',
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = '#1e40af'}
+                            onBlur={(e) => e.target.style.borderColor = '#dbeafe'}
+                          />
+                        ) : (
+                          <p style={{ 
+                            color: '#6b7280', 
+                            fontSize: '14px', 
+                            margin: '0',
+                            padding: '8px 0',
+                            borderBottom: '1px solid #f3f4f6'
+                          }}>
+                            {patientData.email}
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -707,15 +792,37 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                         }}>
                           Phone
                         </label>
-                        <p style={{ 
-                          color: '#6b7280', 
-                          fontSize: '14px', 
-                          margin: '0',
-                          padding: '8px 0',
-                          borderBottom: '1px solid #f3f4f6'
-                        }}>
-                          {patientData.phone || 'Not provided'}
-                        </p>
+                        {isEditingProfile ? (
+                          <input
+                            type="tel"
+                            value={editedPhone}
+                            onChange={(e) => setEditedPhone(e.target.value)}
+                            placeholder="Enter phone number"
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              border: '2px solid #dbeafe',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              color: '#374151',
+                              backgroundColor: 'white',
+                              outline: 'none',
+                              transition: 'border-color 0.2s',
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = '#1e40af'}
+                            onBlur={(e) => e.target.style.borderColor = '#dbeafe'}
+                          />
+                        ) : (
+                          <p style={{ 
+                            color: '#6b7280', 
+                            fontSize: '14px', 
+                            margin: '0',
+                            padding: '8px 0',
+                            borderBottom: '1px solid #f3f4f6'
+                          }}>
+                            {patientData.phone || 'Not provided'}
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -761,19 +868,97 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                       </div>
                     </div>
 
-                    <button style={{
-                      backgroundColor: '#1e40af',
-                      color: 'white',
-                      border: 'none',
-                      padding: '10px 20px',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      marginTop: '20px'
-                    }}>
-                      Edit Personal Info
-                    </button>
+                    {!isEditingProfile && (
+                      <div style={{
+                        backgroundColor: '#f0f9ff',
+                        border: '1px solid #dbeafe',
+                        borderRadius: '6px',
+                        padding: '12px',
+                        marginTop: '16px'
+                      }}>
+                        <p style={{
+                          color: '#1e40af',
+                          fontSize: '12px',
+                          margin: '0',
+                          fontWeight: '500'
+                        }}>
+                          💡 You can edit your email and phone number. To change your name or date of birth, please contact support.
+                        </p>
+                      </div>
+                    )}
+
+                    {isEditingProfile ? (
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                        <button
+                          onClick={handleSaveProfile}
+                          disabled={isSavingProfile}
+                          style={{
+                            backgroundColor: '#16a34a',
+                            color: 'white',
+                            border: 'none',
+                            padding: '10px 20px',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: isSavingProfile ? 'not-allowed' : 'pointer',
+                            opacity: isSavingProfile ? 0.7 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}
+                        >
+                          {isSavingProfile ? (
+                            <>
+                              <div style={{
+                                width: '16px',
+                                height: '16px',
+                                border: '2px solid white',
+                                borderTop: '2px solid transparent',
+                                borderRadius: '50%',
+                                animation: 'spin 1s linear infinite'
+                              }} />
+                              Saving...
+                            </>
+                          ) : (
+                            <>✓ Save Changes</>
+                          )}
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          disabled={isSavingProfile}
+                          style={{
+                            backgroundColor: 'transparent',
+                            color: '#6b7280',
+                            border: '2px solid #d1d5db',
+                            padding: '10px 20px',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: isSavingProfile ? 'not-allowed' : 'pointer',
+                            opacity: isSavingProfile ? 0.7 : 1
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleEditProfile}
+                        style={{
+                          backgroundColor: '#1e40af',
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px 20px',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          cursor: 'pointer',
+                          marginTop: '20px'
+                        }}
+                      >
+                        Edit Personal Info
+                      </button>
+                    )}
                   </div>
 
                   {/* Medical Information */}
