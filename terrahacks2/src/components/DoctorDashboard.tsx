@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase, Patient, ExerciseCompletion } from '../lib/supabase';
-import { supabaseAdmin } from '../lib/supabase-admin';
+import { supabase, Patient, ExerciseCompletion, Exercise } from '../lib/supabase';
 
 interface PatientWithStats extends Patient {
   totalExercises?: number;
@@ -16,7 +15,7 @@ export default function DoctorDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [showCreateRoutine, setShowCreateRoutine] = useState(false);
-  const [availableExercises, setAvailableExercises] = useState<any[]>([]);
+  const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
   const [newRoutine, setNewRoutine] = useState({
     title: '',
     description: '',
@@ -31,10 +30,9 @@ export default function DoctorDashboard() {
 
   const fetchAvailableExercises = async () => {
     try {
-      const { data: exercises, error } = await supabaseAdmin
-        .from('exercise_templates')
+      const { data: exercises, error } = await supabase
+        .from('exercises')
         .select('*')
-        .eq('is_public', true)
         .order('name');
 
       if (error) throw error;
@@ -51,9 +49,8 @@ export default function DoctorDashboard() {
 
       console.log('Fetching patients from Supabase...');
       
-      // For demo purposes, we'll use admin client to bypass RLS
-      // In production, you'd use proper authentication
-      const { data: patientsData, error: patientsError } = await supabaseAdmin
+      // Get patients for the logged-in doctor
+      const { data: patientsData, error: patientsError } = await supabase
         .from('patients')
         .select('*')
         .order('created_at', { ascending: false });
@@ -64,9 +61,9 @@ export default function DoctorDashboard() {
 
       // Fetch exercise completion stats for each patient
       const patientsWithStats = await Promise.all(
-        (patientsData || []).map(async (patient) => {
+        (patientsData || []).map(async (patient: Patient) => {
           console.log('Processing patient:', patient);
-          const { data: completions } = await supabaseAdmin
+          const { data: completions } = await supabase
             .from('exercise_completions')
             .select('*')
             .eq('patient_id', patient.id);
@@ -74,8 +71,8 @@ export default function DoctorDashboard() {
           console.log(`Completions for patient ${patient.id}:`, completions);
 
           const totalExercises = completions?.length || 0;
-          const completedExercises = completions?.filter(c => c.completion_status === 'completed').length || 0;
-          const nftCount = completions?.filter(c => c.nft_minted).length || 0;
+          const completedExercises = completions?.filter((c: ExerciseCompletion) => c.completion_status === 'completed').length || 0;
+          const nftCount = completions?.filter((c: ExerciseCompletion) => c.nft_minted).length || 0;
           const lastActivity = completions?.[0]?.completion_date || null;
 
           return {
@@ -103,7 +100,7 @@ export default function DoctorDashboard() {
       setSelectedPatient(patient);
       
       // Fetch detailed exercise completions for this patient
-      const { data: completions, error } = await supabaseAdmin
+      const { data: completions, error } = await supabase
         .from('exercise_completions')
         .select('*')
         .eq('patient_id', patient.id)
@@ -116,7 +113,7 @@ export default function DoctorDashboard() {
     }
   };
 
-  const addExerciseToRoutine = (exercise: any) => {
+  const addExerciseToRoutine = (exercise: Exercise) => {
     const routineExercise = {
       exercise_template_id: exercise.id,
       exercise_name: exercise.name,
@@ -161,7 +158,7 @@ export default function DoctorDashboard() {
       }
 
       // Create the routine
-      const { data: routine, error: routineError } = await supabaseAdmin
+      const { data: routine, error: routineError } = await supabase
         .from('routines')
         .insert({
           patient_id: newRoutine.patientId,
@@ -180,16 +177,16 @@ export default function DoctorDashboard() {
       // Add exercises to the routine
       const routineExercises = newRoutine.exercises.map(ex => ({
         routine_id: routine.id,
-        exercise_template_id: ex.exercise_template_id,
+        exercise_id: ex.exercise_template_id,
         sets: ex.sets,
         reps: ex.reps,
         duration_seconds: ex.duration_seconds,
         rest_seconds: ex.rest_seconds,
         order_in_routine: ex.order_in_routine,
-        special_instructions: ex.special_instructions
+        notes: ex.special_instructions
       }));
 
-      const { error: exercisesError } = await supabaseAdmin
+      const { error: exercisesError } = await supabase
         .from('routine_exercises')
         .insert(routineExercises);
 
@@ -512,9 +509,9 @@ export default function DoctorDashboard() {
                       <strong>Date of Birth:</strong> {formatDate(selectedPatient.date_of_birth)}
                     </p>
                   )}
-                  {selectedPatient.wallet_address && (
+                  {selectedPatient.nft_wallet_address && (
                     <p style={{ color: '#6b7280', margin: '0', fontSize: '14px' }}>
-                      <strong>Wallet:</strong> {selectedPatient.wallet_address.slice(0, 6)}...{selectedPatient.wallet_address.slice(-4)}
+                      <strong>Wallet:</strong> {selectedPatient.nft_wallet_address.slice(0, 6)}...{selectedPatient.nft_wallet_address.slice(-4)}
                     </p>
                   )}
                 </div>
