@@ -140,6 +140,7 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
 
   const fetchRoutineExercises = async (routineId: string) => {
     try {
+      console.log('Fetching exercises for routine:', routineId);
       const { data: exercises, error } = await supabase
         .from('routine_exercises')
         .select(`
@@ -149,7 +150,12 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
         .eq('routine_id', routineId)
         .order('order_in_routine');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error in fetchRoutineExercises:', error);
+        throw error;
+      }
+      
+      console.log('Fetched routine exercises:', exercises);
       setRoutineExercises(exercises || []);
     } catch (err) {
       console.error('Error fetching routine exercises:', err);
@@ -604,11 +610,22 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                                 fontWeight: '600',
                                 margin: '0 0 4px 0'
                               }}>
-                                {exercise.order_in_routine}. {exercise.exercise_templates?.name}
+                                {exercise.order_in_routine}. {exercise.exercises?.name || 'Exercise'}
                               </h4>
                               <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
-                                {exercise.exercise_templates?.category} • Level {exercise.exercise_templates?.difficulty_level}
+                                {exercise.exercises?.category || 'General'} • Level {exercise.exercises?.difficulty_level || 1}
                               </div>
+                              {exercise.exercises?.description && (
+                                <p style={{ 
+                                  color: '#6b7280', 
+                                  fontSize: '13px', 
+                                  margin: '0 0 8px 0',
+                                  lineHeight: '1.4',
+                                  fontStyle: 'italic'
+                                }}>
+                                  {exercise.exercises.description}
+                                </p>
+                              )}
                             </div>
                             
                             <div style={{
@@ -642,18 +659,18 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                               </div>
                             </div>
 
-                            {exercise.exercise_templates?.instructions && (
+                            {exercise.exercises?.instructions && (
                               <p style={{ 
                                 color: '#374151', 
                                 fontSize: '14px', 
                                 margin: '0',
                                 lineHeight: '1.4'
                               }}>
-                                <strong>Instructions:</strong> {exercise.exercise_templates.instructions}
+                                <strong>Instructions:</strong> {exercise.exercises.instructions}
                               </p>
                             )}
 
-                            {exercise.special_instructions && (
+                            {exercise.notes && (
                               <p style={{ 
                                 color: '#059669', 
                                 fontSize: '14px', 
