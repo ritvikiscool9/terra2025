@@ -1,10 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 import PatientSidebar from './PatientSidebar';
 import VideoAnalyzer from './VideoAnalyzer';
-import { supabase } from '../lib/supabase';
 
 interface PatientLayoutProps {
   initialPage?: string;
+}
+
+interface PatientData {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  date_of_birth: string;
+  phone: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  medical_conditions: string[];
+  current_medications: string[];
+  nft_wallet_address: string;
+  assigned_doctor_id: string;
+  doctors?: {
+    first_name: string;
+    last_name: string;
+    specialization: string;
+  };
 }
 
 export default function PatientLayout({ initialPage = 'workout' }: PatientLayoutProps) {
@@ -13,12 +33,47 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
   const [selectedRoutine, setSelectedRoutine] = useState<any>(null);
   const [routineExercises, setRoutineExercises] = useState<any[]>([]);
   const [isLoadingRoutines, setIsLoadingRoutines] = useState(false);
+  const [patientData, setPatientData] = useState<PatientData | null>(null);
+  const [isLoadingPatient, setIsLoadingPatient] = useState(false);
+  const [nftCount, setNftCount] = useState(0);
 
   useEffect(() => {
     if (currentPage === 'routines') {
       fetchPatientRoutines();
     }
+    if (currentPage === 'profile') {
+      fetchPatientData();
+    }
   }, [currentPage]);
+
+  const fetchPatientData = async () => {
+    try {
+      setIsLoadingPatient(true);
+      
+      // For demo purposes, we'll get the first patient
+      // In production, you'd use the logged-in user's ID
+      const { data: patients, error } = await supabase
+        .from('patients')
+        .select(`
+          *,
+          doctors(first_name, last_name, specialization)
+        `)
+        .limit(1);
+
+      if (error) throw error;
+      
+      if (patients && patients.length > 0) {
+        setPatientData(patients[0]);
+        
+        // Count NFTs (for demo, we'll simulate this)
+        setNftCount(3);
+      }
+    } catch (err) {
+      console.error('Error fetching patient data:', err);
+    } finally {
+      setIsLoadingPatient(false);
+    }
+  };
 
   const fetchPatientRoutines = async () => {
     try {
@@ -69,6 +124,24 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const calculateAge = (dateOfBirth: string) => {
+    const birth = new Date(dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    
+    return age;
+  };
+
+  const formatWalletAddress = (address: string) => {
+    if (!address) return 'Not connected';
+    return `${address.slice(0, 6)}...${address.slice(-6)}`;
   };
 
   const renderContent = () => {
@@ -492,492 +565,469 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
               </p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-              {/* Personal Information */}
+            {isLoadingPatient ? (
+              <div style={{ textAlign: 'center', padding: '60px' }}>
+                <div style={{
+                  width: '50px',
+                  height: '50px',
+                  border: '4px solid #e2e8f0',
+                  borderTop: '4px solid #1e40af',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 20px'
+                }} />
+                <p style={{ color: '#6b7280', fontSize: '16px' }}>Loading your profile...</p>
+              </div>
+            ) : !patientData ? (
               <div style={{
+                textAlign: 'center',
+                padding: '60px',
                 backgroundColor: 'white',
-                padding: '30px',
                 borderRadius: '12px',
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                 border: '1px solid #e2e8f0'
               }}>
-                <h2 style={{
-                  color: '#374151',
-                  fontSize: '20px',
-                  fontWeight: '600',
-                  marginBottom: '20px',
-                  borderBottom: '2px solid #e2e8f0',
-                  paddingBottom: '12px'
-                }}>
-                  Personal Information
-                </h2>
-
-                <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+                <h3 style={{ color: '#dc2626', marginBottom: '8px' }}>Profile Not Found</h3>
+                <p style={{ color: '#6b7280', fontSize: '14px', margin: '0' }}>
+                  Unable to load patient profile. Please contact support.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                  {/* Personal Information */}
                   <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    marginBottom: '16px'
+                    backgroundColor: 'white',
+                    padding: '30px',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #e2e8f0'
                   }}>
+                    <h2 style={{
+                      color: '#374151',
+                      fontSize: '20px',
+                      fontWeight: '600',
+                      marginBottom: '20px',
+                      borderBottom: '2px solid #e2e8f0',
+                      paddingBottom: '12px'
+                    }}>
+                      Personal Information
+                    </h2>
+
+                    <div style={{ marginBottom: '20px' }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        marginBottom: '16px'
+                      }}>
+                        <div style={{
+                          width: '80px',
+                          height: '80px',
+                          borderRadius: '50%',
+                          backgroundColor: '#dbeafe',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '32px',
+                          marginRight: '16px'
+                        }}>
+                          👤
+                        </div>
+                        <div>
+                          <h3 style={{ color: '#1e40af', fontSize: '18px', fontWeight: '600', margin: '0 0 4px 0' }}>
+                            {patientData.first_name} {patientData.last_name}
+                          </h3>
+                          <p style={{ color: '#6b7280', fontSize: '14px', margin: '0' }}>
+                            Patient ID: {patientData.id.slice(0, 8).toUpperCase()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div>
+                        <label style={{ 
+                          color: '#374151', 
+                          fontSize: '14px', 
+                          fontWeight: '500',
+                          display: 'block',
+                          marginBottom: '4px'
+                        }}>
+                          Email
+                        </label>
+                        <p style={{ 
+                          color: '#6b7280', 
+                          fontSize: '14px', 
+                          margin: '0',
+                          padding: '8px 0',
+                          borderBottom: '1px solid #f3f4f6'
+                        }}>
+                          {patientData.email}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label style={{ 
+                          color: '#374151', 
+                          fontSize: '14px', 
+                          fontWeight: '500',
+                          display: 'block',
+                          marginBottom: '4px'
+                        }}>
+                          Phone
+                        </label>
+                        <p style={{ 
+                          color: '#6b7280', 
+                          fontSize: '14px', 
+                          margin: '0',
+                          padding: '8px 0',
+                          borderBottom: '1px solid #f3f4f6'
+                        }}>
+                          {patientData.phone || 'Not provided'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label style={{ 
+                          color: '#374151', 
+                          fontSize: '14px', 
+                          fontWeight: '500',
+                          display: 'block',
+                          marginBottom: '4px'
+                        }}>
+                          Date of Birth
+                        </label>
+                        <p style={{ 
+                          color: '#6b7280', 
+                          fontSize: '14px', 
+                          margin: '0',
+                          padding: '8px 0',
+                          borderBottom: '1px solid #f3f4f6'
+                        }}>
+                          {patientData.date_of_birth ? formatDate(patientData.date_of_birth) : 'Not provided'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label style={{ 
+                          color: '#374151', 
+                          fontSize: '14px', 
+                          fontWeight: '500',
+                          display: 'block',
+                          marginBottom: '4px'
+                        }}>
+                          Age
+                        </label>
+                        <p style={{ 
+                          color: '#6b7280', 
+                          fontSize: '14px', 
+                          margin: '0',
+                          padding: '8px 0',
+                          borderBottom: '1px solid #f3f4f6'
+                        }}>
+                          {patientData.date_of_birth ? `${calculateAge(patientData.date_of_birth)} years old` : 'Unknown'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button style={{
+                      backgroundColor: '#1e40af',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      marginTop: '20px'
+                    }}>
+                      Edit Personal Info
+                    </button>
+                  </div>
+
+                  {/* Medical Information */}
+                  <div style={{
+                    backgroundColor: 'white',
+                    padding: '30px',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <h2 style={{
+                      color: '#374151',
+                      fontSize: '20px',
+                      fontWeight: '600',
+                      marginBottom: '20px',
+                      borderBottom: '2px solid #e2e8f0',
+                      paddingBottom: '12px'
+                    }}>
+                      Medical Information
+                    </h2>
+
+                    <div style={{ marginBottom: '24px' }}>
+                      <label style={{ 
+                        color: '#374151', 
+                        fontSize: '14px', 
+                        fontWeight: '500',
+                        display: 'block',
+                        marginBottom: '8px'
+                      }}>
+                        Assigned Doctor
+                      </label>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '12px',
+                        backgroundColor: '#f0f9ff',
+                        borderRadius: '8px',
+                        border: '1px solid #dbeafe'
+                      }}>
+                        <span style={{ fontSize: '20px', marginRight: '8px' }}>👨‍⚕️</span>
+                        <div>
+                          {patientData.doctors ? (
+                            <>
+                              <p style={{ color: '#1e40af', fontSize: '14px', fontWeight: '500', margin: '0' }}>
+                                Dr. {patientData.doctors.first_name} {patientData.doctors.last_name}
+                              </p>
+                              <p style={{ color: '#6b7280', fontSize: '12px', margin: '0' }}>
+                                {patientData.doctors.specialization || 'General Practice'}
+                              </p>
+                            </>
+                          ) : (
+                            <p style={{ color: '#6b7280', fontSize: '14px', margin: '0' }}>
+                              No doctor assigned
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '20px' }}>
+                      <label style={{ 
+                        color: '#374151', 
+                        fontSize: '14px', 
+                        fontWeight: '500',
+                        display: 'block',
+                        marginBottom: '8px'
+                      }}>
+                        Medical Conditions
+                      </label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {patientData.medical_conditions && patientData.medical_conditions.length > 0 ? (
+                          patientData.medical_conditions.map((condition, index) => (
+                            <span key={index} style={{
+                              backgroundColor: '#fef2f2',
+                              color: '#dc2626',
+                              padding: '4px 12px',
+                              borderRadius: '20px',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              border: '1px solid #fecaca'
+                            }}>
+                              {condition}
+                            </span>
+                          ))
+                        ) : (
+                          <span style={{
+                            backgroundColor: '#f3f4f6',
+                            color: '#6b7280',
+                            padding: '4px 12px',
+                            borderRadius: '20px',
+                            fontSize: '12px',
+                            fontWeight: '500'
+                          }}>
+                            No conditions recorded
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '20px' }}>
+                      <label style={{ 
+                        color: '#374151', 
+                        fontSize: '14px', 
+                        fontWeight: '500',
+                        display: 'block',
+                        marginBottom: '8px'
+                      }}>
+                        Current Medications
+                      </label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {patientData.current_medications && patientData.current_medications.length > 0 ? (
+                          patientData.current_medications.map((medication, index) => (
+                            <span key={index} style={{
+                              backgroundColor: '#f0fdf4',
+                              color: '#16a34a',
+                              padding: '4px 12px',
+                              borderRadius: '20px',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              border: '1px solid #bbf7d0'
+                            }}>
+                              {medication}
+                            </span>
+                          ))
+                        ) : (
+                          <span style={{
+                            backgroundColor: '#f3f4f6',
+                            color: '#6b7280',
+                            padding: '4px 12px',
+                            borderRadius: '20px',
+                            fontSize: '12px',
+                            fontWeight: '500'
+                          }}>
+                            No medications recorded
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button style={{
+                      backgroundColor: 'transparent',
+                      color: '#1e40af',
+                      border: '2px solid #1e40af',
+                      padding: '10px 20px',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      marginTop: '8px'
+                    }}>
+                      Update Medical Info
+                    </button>
+                  </div>
+                </div>
+
+                {/* Emergency Contact & NFT Wallet */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginTop: '30px' }}>
+                  {/* Emergency Contact */}
+                  <div style={{
+                    backgroundColor: 'white',
+                    padding: '30px',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <h2 style={{
+                      color: '#374151',
+                      fontSize: '18px',
+                      fontWeight: '600',
+                      marginBottom: '16px',
+                      borderBottom: '2px solid #e2e8f0',
+                      paddingBottom: '8px'
+                    }}>
+                      Emergency Contact
+                    </h2>
+
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{ 
+                        color: '#374151', 
+                        fontSize: '14px', 
+                        fontWeight: '500',
+                        display: 'block',
+                        marginBottom: '4px'
+                      }}>
+                        Name
+                      </label>
+                      <p style={{ 
+                        color: '#6b7280', 
+                        fontSize: '14px', 
+                        margin: '0',
+                        padding: '8px 0',
+                        borderBottom: '1px solid #f3f4f6'
+                      }}>
+                        {patientData.emergency_contact_name || 'Not provided'}
+                      </p>
+                    </div>
+
+                    <div style={{ marginBottom: '20px' }}>
+                      <label style={{ 
+                        color: '#374151', 
+                        fontSize: '14px', 
+                        fontWeight: '500',
+                        display: 'block',
+                        marginBottom: '4px'
+                      }}>
+                        Phone
+                      </label>
+                      <p style={{ 
+                        color: '#6b7280', 
+                        fontSize: '14px', 
+                        margin: '0',
+                        padding: '8px 0',
+                        borderBottom: '1px solid #f3f4f6'
+                      }}>
+                        {patientData.emergency_contact_phone || 'Not provided'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* NFT Rewards Wallet */}
+                  <div style={{
+                    backgroundColor: 'white',
+                    padding: '30px',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <h2 style={{
+                      color: '#374151',
+                      fontSize: '18px',
+                      fontWeight: '600',
+                      marginBottom: '16px',
+                      borderBottom: '2px solid #e2e8f0',
+                      paddingBottom: '8px'
+                    }}>
+                      NFT Rewards Wallet
+                    </h2>
+
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{ 
+                        color: '#374151', 
+                        fontSize: '14px', 
+                        fontWeight: '500',
+                        display: 'block',
+                        marginBottom: '4px'
+                      }}>
+                        Wallet Address
+                      </label>
+                      <p style={{ 
+                        color: '#6b7280', 
+                        fontSize: '12px', 
+                        margin: '0',
+                        padding: '8px 12px',
+                        backgroundColor: '#f8fafc',
+                        borderRadius: '6px',
+                        fontFamily: 'monospace',
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        {formatWalletAddress(patientData.nft_wallet_address)}
+                      </p>
+                    </div>
+
                     <div style={{
-                      width: '80px',
-                      height: '80px',
-                      borderRadius: '50%',
-                      backgroundColor: '#dbeafe',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '32px',
-                      marginRight: '16px'
+                      padding: '12px',
+                      backgroundColor: '#f0f9ff',
+                      borderRadius: '8px',
+                      border: '1px solid #dbeafe'
                     }}>
-                      👤
-                    </div>
-                    <div>
-                      <h3 style={{ color: '#1e40af', fontSize: '18px', fontWeight: '600', margin: '0 0 4px 0' }}>
-                        John Smith
-                      </h3>
-                      <p style={{ color: '#6b7280', fontSize: '14px', margin: '0' }}>
-                        Patient ID: PAT-2025-001
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <label style={{ 
-                      color: '#374151', 
-                      fontSize: '14px', 
-                      fontWeight: '500',
-                      display: 'block',
-                      marginBottom: '4px'
-                    }}>
-                      Email
-                    </label>
-                    <p style={{ 
-                      color: '#6b7280', 
-                      fontSize: '14px', 
-                      margin: '0',
-                      padding: '8px 0',
-                      borderBottom: '1px solid #f3f4f6'
-                    }}>
-                      john.smith@email.com
-                    </p>
-                  </div>
-
-                  <div>
-                    <label style={{ 
-                      color: '#374151', 
-                      fontSize: '14px', 
-                      fontWeight: '500',
-                      display: 'block',
-                      marginBottom: '4px'
-                    }}>
-                      Phone
-                    </label>
-                    <p style={{ 
-                      color: '#6b7280', 
-                      fontSize: '14px', 
-                      margin: '0',
-                      padding: '8px 0',
-                      borderBottom: '1px solid #f3f4f6'
-                    }}>
-                      (555) 123-4567
-                    </p>
-                  </div>
-
-                  <div>
-                    <label style={{ 
-                      color: '#374151', 
-                      fontSize: '14px', 
-                      fontWeight: '500',
-                      display: 'block',
-                      marginBottom: '4px'
-                    }}>
-                      Date of Birth
-                    </label>
-                    <p style={{ 
-                      color: '#6b7280', 
-                      fontSize: '14px', 
-                      margin: '0',
-                      padding: '8px 0',
-                      borderBottom: '1px solid #f3f4f6'
-                    }}>
-                      January 15, 1985
-                    </p>
-                  </div>
-
-                  <div>
-                    <label style={{ 
-                      color: '#374151', 
-                      fontSize: '14px', 
-                      fontWeight: '500',
-                      display: 'block',
-                      marginBottom: '4px'
-                    }}>
-                      Age
-                    </label>
-                    <p style={{ 
-                      color: '#6b7280', 
-                      fontSize: '14px', 
-                      margin: '0',
-                      padding: '8px 0',
-                      borderBottom: '1px solid #f3f4f6'
-                    }}>
-                      40 years old
-                    </p>
-                  </div>
-                </div>
-
-                <button style={{
-                  backgroundColor: '#1e40af',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  marginTop: '20px'
-                }}>
-                  Edit Personal Info
-                </button>
-              </div>
-
-              {/* Medical Information */}
-              <div style={{
-                backgroundColor: 'white',
-                padding: '30px',
-                borderRadius: '12px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                border: '1px solid #e2e8f0'
-              }}>
-                <h2 style={{
-                  color: '#374151',
-                  fontSize: '20px',
-                  fontWeight: '600',
-                  marginBottom: '20px',
-                  borderBottom: '2px solid #e2e8f0',
-                  paddingBottom: '12px'
-                }}>
-                  Medical Information
-                </h2>
-
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={{ 
-                    color: '#374151', 
-                    fontSize: '14px', 
-                    fontWeight: '500',
-                    display: 'block',
-                    marginBottom: '8px'
-                  }}>
-                    Assigned Doctor
-                  </label>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '12px',
-                    backgroundColor: '#f0f9ff',
-                    borderRadius: '8px',
-                    border: '1px solid #dbeafe'
-                  }}>
-                    <span style={{ fontSize: '20px', marginRight: '8px' }}>👨‍⚕️</span>
-                    <div>
-                      <p style={{ color: '#1e40af', fontSize: '14px', fontWeight: '500', margin: '0' }}>
-                        Dr. Sarah Johnson
-                      </p>
-                      <p style={{ color: '#6b7280', fontSize: '12px', margin: '0' }}>
-                        Orthopedic Specialist
-                      </p>
+                      <span style={{ fontSize: '20px', marginRight: '8px' }}>🏆</span>
+                      <div>
+                        <p style={{ color: '#1e40af', fontSize: '14px', fontWeight: '500', margin: '0' }}>
+                          {nftCount} Achievement NFTs Earned
+                        </p>
+                        <p style={{ color: '#6b7280', fontSize: '12px', margin: '0' }}>
+                          Keep completing exercises to earn more rewards!
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ 
-                    color: '#374151', 
-                    fontSize: '14px', 
-                    fontWeight: '500',
-                    display: 'block',
-                    marginBottom: '8px'
-                  }}>
-                    Medical Conditions
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    <span style={{
-                      backgroundColor: '#fef2f2',
-                      color: '#dc2626',
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: '500',
-                      border: '1px solid #fecaca'
-                    }}>
-                      Shoulder Impingement
-                    </span>
-                    <span style={{
-                      backgroundColor: '#fef2f2',
-                      color: '#dc2626',
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: '500',
-                      border: '1px solid #fecaca'
-                    }}>
-                      Lower Back Pain
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ 
-                    color: '#374151', 
-                    fontSize: '14px', 
-                    fontWeight: '500',
-                    display: 'block',
-                    marginBottom: '8px'
-                  }}>
-                    Current Medications
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    <span style={{
-                      backgroundColor: '#f0fdf4',
-                      color: '#16a34a',
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: '500',
-                      border: '1px solid #bbf7d0'
-                    }}>
-                      Ibuprofen 200mg
-                    </span>
-                    <span style={{
-                      backgroundColor: '#f0fdf4',
-                      color: '#16a34a',
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: '500',
-                      border: '1px solid #bbf7d0'
-                    }}>
-                      Physical Therapy
-                    </span>
-                  </div>
-                </div>
-
-                <button style={{
-                  backgroundColor: 'transparent',
-                  color: '#1e40af',
-                  border: '2px solid #1e40af',
-                  padding: '10px 20px',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  marginTop: '8px'
-                }}>
-                  Update Medical Info
-                </button>
-              </div>
-            </div>
-
-            {/* Emergency Contact & NFT Wallet */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginTop: '30px' }}>
-              {/* Emergency Contact */}
-              <div style={{
-                backgroundColor: 'white',
-                padding: '30px',
-                borderRadius: '12px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                border: '1px solid #e2e8f0'
-              }}>
-                <h2 style={{
-                  color: '#374151',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  marginBottom: '16px',
-                  borderBottom: '2px solid #e2e8f0',
-                  paddingBottom: '8px'
-                }}>
-                  Emergency Contact
-                </h2>
-                
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ 
-                    color: '#374151', 
-                    fontSize: '14px', 
-                    fontWeight: '500',
-                    display: 'block',
-                    marginBottom: '4px'
-                  }}>
-                    Name
-                  </label>
-                  <p style={{ color: '#6b7280', fontSize: '14px', margin: '0' }}>
-                    Jane Smith (Spouse)
-                  </p>
-                </div>
-
-                <div>
-                  <label style={{ 
-                    color: '#374151', 
-                    fontSize: '14px', 
-                    fontWeight: '500',
-                    display: 'block',
-                    marginBottom: '4px'
-                  }}>
-                    Phone
-                  </label>
-                  <p style={{ color: '#6b7280', fontSize: '14px', margin: '0' }}>
-                    (555) 123-4568
-                  </p>
-                </div>
-              </div>
-
-              {/* NFT Wallet */}
-              <div style={{
-                backgroundColor: 'white',
-                padding: '30px',
-                borderRadius: '12px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                border: '1px solid #e2e8f0'
-              }}>
-                <h2 style={{
-                  color: '#374151',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  marginBottom: '16px',
-                  borderBottom: '2px solid #e2e8f0',
-                  paddingBottom: '8px'
-                }}>
-                  NFT Rewards Wallet
-                </h2>
-                
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ 
-                    color: '#374151', 
-                    fontSize: '14px', 
-                    fontWeight: '500',
-                    display: 'block',
-                    marginBottom: '4px'
-                  }}>
-                    Wallet Address
-                  </label>
-                  <p style={{ 
-                    color: '#6b7280', 
-                    fontSize: '12px', 
-                    margin: '0',
-                    fontFamily: 'monospace',
-                    backgroundColor: '#f9fafb',
-                    padding: '8px',
-                    borderRadius: '4px',
-                    wordBreak: 'break-all'
-                  }}>
-                    0x742d35Cc6Bf8...d6d6BB88
-                  </p>
-                </div>
-
-                <div style={{
-                  backgroundColor: '#f0f9ff',
-                  padding: '12px',
-                  borderRadius: '6px',
-                  border: '1px solid #dbeafe'
-                }}>
-                  <p style={{ 
-                    color: '#1e40af', 
-                    fontSize: '12px', 
-                    margin: '0',
-                    fontWeight: '500'
-                  }}>
-                    🏆 3 Achievement NFTs Earned
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Account Actions */}
-            <div style={{
-              backgroundColor: 'white',
-              padding: '30px',
-              borderRadius: '12px',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-              border: '1px solid #e2e8f0',
-              marginTop: '30px'
-            }}>
-              <h2 style={{
-                color: '#374151',
-                fontSize: '18px',
-                fontWeight: '600',
-                marginBottom: '16px',
-                borderBottom: '2px solid #e2e8f0',
-                paddingBottom: '8px'
-              }}>
-                Account Actions
-              </h2>
-              
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <button style={{
-                  backgroundColor: '#1e40af',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer'
-                }}>
-                  Download Medical Records
-                </button>
-                
-                <button style={{
-                  backgroundColor: 'transparent',
-                  color: '#1e40af',
-                  border: '2px solid #1e40af',
-                  padding: '10px 20px',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer'
-                }}>
-                  Export Progress Data
-                </button>
-                
-                <button style={{
-                  backgroundColor: 'transparent',
-                  color: '#dc2626',
-                  border: '2px solid #dc2626',
-                  padding: '10px 20px',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer'
-                }}>
-                  Request Account Deletion
-                </button>
-              </div>
-            </div>
-
-            {/* Privacy Notice */}
-            <div style={{
-              backgroundColor: '#f0f9ff',
-              border: '1px solid #2563eb',
-              borderRadius: '8px',
-              padding: '16px',
-              marginTop: '20px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'start' }}>
-                <span style={{ fontSize: '20px', marginRight: '8px' }}>🔒</span>
-                <div>
-                  <p style={{ 
-                    color: '#1e40af', 
-                    fontSize: '14px', 
-                    margin: '0',
-                    fontWeight: '500'
-                  }}>
-                    <strong>Privacy & Security:</strong> Your medical information is encrypted and compliant with HIPAA regulations. 
-                    Only you and your assigned healthcare providers can access this data.
-                  </p>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         );
       default:
