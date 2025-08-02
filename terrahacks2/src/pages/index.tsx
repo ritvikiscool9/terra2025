@@ -5,18 +5,19 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Squat Video Analyzer</title>
-        <meta name="description" content="AI-powered squat exercise analysis using Google Gemini" />
+        <title>AI Exercise Analyzer - Smart Fitness Form Analysis</title>
+        <meta name="description" content="Upload any exercise video and get instant AI-powered form analysis and feedback using Google Gemini" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <div style={{ 
-        minHeight: '100vh', 
-        backgroundColor: '#ffffff',
-        color: '#000000'
+      <main style={{
+        margin: 0,
+        padding: 0,
+        minHeight: '100vh',
+        backgroundColor: '#f7fafc'
       }}>
         <VideoAnalyzer />
-      </div>
+      </main>
     </>
   );
 }
