@@ -16,10 +16,10 @@ export default function PatientSidebar({ currentPage, onPageChange }: PatientSid
       description: 'Record or upload exercise videos'
     },
     {
-      id: 'progress',
-      label: 'Progress Tracking',
-      icon: '📊',
-      description: 'View your exercise progress'
+      id: 'routines',
+      label: 'My Routines',
+      icon: '�',
+      description: 'View assigned exercise routines'
     },
     {
       id: 'profile',
