@@ -34,7 +34,7 @@ export interface Patient {
   emergency_contact_phone?: string
   medical_conditions?: string[]
   current_medications?: string[]
-  wallet_address?: string
+  nft_wallet_address?: string // Updated to match the database column name
   profile_image_url?: string
   assigned_doctor_id?: string
   created_at: string

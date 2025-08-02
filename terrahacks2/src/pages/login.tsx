@@ -22,24 +22,37 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      if (step === 'patient-login') {
-        if (password === '1234') {
-          console.log('Patient login successful:', { email });
-          router.push('/patient'); // Update this path when you know the actual patient page
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          password
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('Login successful:', data);
+        
+        // Store user data in localStorage for session management
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Redirect based on user type
+        if (data.user.userType === 'doctor') {
+          router.push('/doctor');
         } else {
-          alert('Invalid password. Patient password is "1234"');
+          router.push('/patient');
         }
-      } else if (step === 'doctor-login') {
-        if (password === '1234') {
-          console.log('Doctor login successful:', { email });
-          router.push('/doctor'); // Update this path when you know the actual doctor page
-        } else {
-          alert('Invalid password. Doctor password is "1234"');
-        }
+      } else {
+        alert(data.error || 'Login failed. Please try again.');
       }
     } catch (error) {
       console.error('Login error:', error);
-      alert('Login failed. Please try again.');
+      alert('Network error. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -103,69 +116,119 @@ export default function Login() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <button
-                onClick={() => handleRoleSelection('doctor')}
-                style={{
-                  padding: '20px',
-                  borderRadius: '12px',
-                  border: '2px solid #e5e7eb',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#1e40af';
-                  e.currentTarget.style.backgroundColor = '#eff6ff';
-                  e.currentTarget.style.color = '#1e40af';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#e5e7eb';
-                  e.currentTarget.style.backgroundColor = 'white';
-                  e.currentTarget.style.color = '#374151';
-                }}
-              >
-                <span style={{ fontSize: '24px' }}>🩺</span>
-                I'm a Doctor
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button
+                  onClick={() => handleRoleSelection('doctor')}
+                  style={{
+                    padding: '20px',
+                    borderRadius: '12px',
+                    border: '2px solid #e5e7eb',
+                    backgroundColor: 'white',
+                    color: '#374151',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#1e40af';
+                    e.currentTarget.style.backgroundColor = '#eff6ff';
+                    e.currentTarget.style.color = '#1e40af';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                    e.currentTarget.style.backgroundColor = 'white';
+                    e.currentTarget.style.color = '#374151';
+                  }}
+                >
+                  <span style={{ fontSize: '24px' }}>🩺</span>
+                  I'm a Doctor
+                </button>
+                <button
+                  onClick={() => router.push('/signup/doctor')}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: 'transparent',
+                    border: '1px solid #1e40af',
+                    borderRadius: '6px',
+                    color: '#1e40af',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#1e40af';
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = '#1e40af';
+                  }}
+                >
+                  Create Doctor Account
+                </button>
+              </div>
 
-              <button
-                onClick={() => handleRoleSelection('patient')}
-                style={{
-                  padding: '20px',
-                  borderRadius: '12px',
-                  border: '2px solid #e5e7eb',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#059669';
-                  e.currentTarget.style.backgroundColor = '#ecfdf5';
-                  e.currentTarget.style.color = '#059669';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#e5e7eb';
-                  e.currentTarget.style.backgroundColor = 'white';
-                  e.currentTarget.style.color = '#374151';
-                }}
-              >
-                <span style={{ fontSize: '24px' }}>👤</span>
-                I'm a Patient
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button
+                  onClick={() => handleRoleSelection('patient')}
+                  style={{
+                    padding: '20px',
+                    borderRadius: '12px',
+                    border: '2px solid #e5e7eb',
+                    backgroundColor: 'white',
+                    color: '#374151',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#059669';
+                    e.currentTarget.style.backgroundColor = '#ecfdf5';
+                    e.currentTarget.style.color = '#059669';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                    e.currentTarget.style.backgroundColor = 'white';
+                    e.currentTarget.style.color = '#374151';
+                  }}
+                >
+                  <span style={{ fontSize: '24px' }}>👤</span>
+                  I'm a Patient
+                </button>
+                <button
+                  onClick={() => router.push('/signup/patient')}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: 'transparent',
+                    border: '1px solid #059669',
+                    borderRadius: '6px',
+                    color: '#059669',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#059669';
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = '#059669';
+                  }}
+                >
+                  Create Patient Account
+                </button>
+              </div>
             </div>
           </div>
         </div>

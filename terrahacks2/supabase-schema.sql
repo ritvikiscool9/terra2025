@@ -1,257 +1,230 @@
--- Supabase Schema for Rehabilitation App
--- Run these SQL commands in your Supabase SQL editor
-
 -- Enable Row Level Security
--- ALTER TABLE IF EXISTS auth.users ENABLE ROW LEVEL SECURITY;
+alter table if exists public.doctors enable row level security;
+alter table if exists public.patients enable row level security;
+alter table if exists public.routines enable row level security;
+alter table if exists public.exercises enable row level security;
+alter table if exists public.routine_exercises enable row level security;
+alter table if exists public.exercise_completions enable row level security;
 
--- =====================================================
--- DOCTORS TABLE
--- =====================================================
-CREATE TABLE doctors (
-    id VARCHAR(10) PRIMARY KEY, -- Changed to allow simple IDs like "001"
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    medical_license VARCHAR(50),
-    specialization VARCHAR(100),
-    hospital_affiliation VARCHAR(200),
-    phone VARCHAR(20),
-    profile_image_url TEXT,
-    is_verified BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Create doctors table
+create table if not exists public.doctors (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users on delete cascade not null,
+  email varchar(255) not null unique,
+  first_name varchar(100) not null,
+  last_name varchar(100) not null,
+  medical_license varchar(100),
+  specialization varchar(200),
+  hospital_affiliation varchar(300),
+  phone varchar(20),
+  profile_image_url text,
+  is_verified boolean default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- =====================================================
--- PATIENTS TABLE
--- =====================================================
-CREATE TABLE patients (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    date_of_birth DATE,
-    phone VARCHAR(20),
-    emergency_contact_name VARCHAR(100),
-    emergency_contact_phone VARCHAR(20),
-    medical_conditions TEXT[],
-    current_medications TEXT[],
-    wallet_address VARCHAR(42), -- Ethereum wallet address for NFTs
-    profile_image_url TEXT,
-    assigned_doctor_id VARCHAR(10) REFERENCES doctors(id) ON DELETE SET NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Create patients table (with NFT wallet address)
+create table if not exists public.patients (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users on delete cascade not null,
+  email varchar(255) not null unique,
+  first_name varchar(100) not null,
+  last_name varchar(100) not null,
+  date_of_birth date,
+  phone varchar(20),
+  emergency_contact_name varchar(200),
+  emergency_contact_phone varchar(20),
+  medical_conditions text[],
+  current_medications text[],
+  nft_wallet_address varchar(42), -- Ethereum wallet address (42 characters)
+  profile_image_url text,
+  assigned_doctor_id uuid references public.doctors(id) on delete set null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- =====================================================
--- EXERCISE_TEMPLATES TABLE
--- =====================================================
-CREATE TABLE exercise_templates (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    name VARCHAR(200) NOT NULL,
-    description TEXT,
-    category VARCHAR(100), -- e.g., 'strength', 'cardio', 'flexibility', 'rehabilitation'
-    difficulty_level INTEGER CHECK (difficulty_level >= 1 AND difficulty_level <= 5),
-    target_body_parts TEXT[], -- e.g., ['shoulders', 'core', 'legs']
-    instructions TEXT NOT NULL,
-    precautions TEXT,
-    demo_video_url TEXT,
-    created_by_doctor_id VARCHAR(10) REFERENCES doctors(id) ON DELETE SET NULL,
-    is_public BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Create exercises table (exercise library)
+create table if not exists public.exercises (
+  id uuid default gen_random_uuid() primary key,
+  name varchar(200) not null,
+  description text,
+  category varchar(100), -- e.g., 'upper_body', 'lower_body', 'core', 'cardio'
+  difficulty_level integer check (difficulty_level >= 1 and difficulty_level <= 5),
+  default_sets integer,
+  default_reps integer,
+  default_duration_seconds integer,
+  instructions text,
+  video_demo_url text,
+  image_url text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- =====================================================
--- ROUTINES TABLE
--- =====================================================
-CREATE TABLE routines (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
-    prescribed_by_doctor_id VARCHAR(10) REFERENCES doctors(id) ON DELETE CASCADE,
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    start_date DATE NOT NULL,
-    end_date DATE,
-    frequency_per_week INTEGER DEFAULT 3,
-    is_active BOOLEAN DEFAULT true,
-    notes TEXT, -- Doctor's notes about the routine
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Create routines table
+create table if not exists public.routines (
+  id uuid default gen_random_uuid() primary key,
+  patient_id uuid references public.patients(id) on delete cascade not null,
+  prescribed_by_doctor_id uuid references public.doctors(id) on delete cascade not null,
+  title varchar(300) not null,
+  description text,
+  start_date date not null,
+  end_date date,
+  frequency_per_week integer not null check (frequency_per_week >= 1 and frequency_per_week <= 7),
+  is_active boolean default true,
+  notes text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- =====================================================
--- ROUTINE_EXERCISES TABLE (Junction table)
--- =====================================================
-CREATE TABLE routine_exercises (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    routine_id UUID REFERENCES routines(id) ON DELETE CASCADE,
-    exercise_template_id UUID REFERENCES exercise_templates(id) ON DELETE CASCADE,
-    sets INTEGER DEFAULT 1,
-    reps INTEGER,
-    duration_seconds INTEGER, -- for time-based exercises
-    rest_seconds INTEGER DEFAULT 60,
-    target_weight DECIMAL(6,2), -- in kg
-    order_in_routine INTEGER NOT NULL,
-    special_instructions TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Ensure unique ordering within a routine
-    UNIQUE(routine_id, order_in_routine)
+-- Create routine_exercises table (junction table for routines and exercises)
+create table if not exists public.routine_exercises (
+  id uuid default gen_random_uuid() primary key,
+  routine_id uuid references public.routines(id) on delete cascade not null,
+  exercise_id uuid references public.exercises(id) on delete cascade not null,
+  sets integer not null,
+  reps integer,
+  duration_seconds integer,
+  rest_seconds integer,
+  order_in_routine integer not null,
+  notes text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- =====================================================
--- EXERCISE_COMPLETIONS TABLE
--- =====================================================
-CREATE TABLE exercise_completions (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    routine_exercise_id UUID REFERENCES routine_exercises(id) ON DELETE CASCADE,
-    patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
-    video_url TEXT, -- URL to uploaded video
-    ai_analysis_result JSONB, -- Store the full Gemini AI analysis
-    form_score INTEGER CHECK (form_score >= 0 AND form_score <= 100),
-    completion_status VARCHAR(20) CHECK (completion_status IN ('completed', 'needs_improvement', 'failed')),
-    actual_sets INTEGER,
-    actual_reps INTEGER,
-    actual_duration_seconds INTEGER,
-    completion_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    doctor_feedback TEXT,
-    nft_minted BOOLEAN DEFAULT false,
-    nft_token_id VARCHAR(100), -- Will be populated when NFT is minted
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Create exercise_completions table
+create table if not exists public.exercise_completions (
+  id uuid default gen_random_uuid() primary key,
+  routine_exercise_id uuid references public.routine_exercises(id) on delete cascade not null,
+  patient_id uuid references public.patients(id) on delete cascade not null,
+  video_url text,
+  ai_analysis_result jsonb,
+  form_score integer check (form_score >= 0 and form_score <= 100),
+  completion_status varchar(20) check (completion_status in ('completed', 'needs_improvement', 'failed')) not null,
+  actual_sets integer,
+  actual_reps integer,
+  actual_duration_seconds integer,
+  completion_date timestamp with time zone default timezone('utc'::text, now()) not null,
+  doctor_feedback text,
+  nft_minted boolean default false,
+  nft_token_id varchar(100),
+  nft_image_url text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- =====================================================
--- INDEXES for better performance
--- =====================================================
-CREATE INDEX idx_doctors_user_id ON doctors(user_id);
-CREATE INDEX idx_doctors_email ON doctors(email);
+-- Create indexes for better performance
+create index if not exists idx_doctors_user_id on public.doctors(user_id);
+create index if not exists idx_doctors_email on public.doctors(email);
+create index if not exists idx_patients_user_id on public.patients(user_id);
+create index if not exists idx_patients_email on public.patients(email);
+create index if not exists idx_patients_assigned_doctor on public.patients(assigned_doctor_id);
+create index if not exists idx_routines_patient_id on public.routines(patient_id);
+create index if not exists idx_routines_doctor_id on public.routines(prescribed_by_doctor_id);
+create index if not exists idx_routine_exercises_routine_id on public.routine_exercises(routine_id);
+create index if not exists idx_exercise_completions_patient_id on public.exercise_completions(patient_id);
+create index if not exists idx_exercise_completions_routine_exercise_id on public.exercise_completions(routine_exercise_id);
 
-CREATE INDEX idx_patients_user_id ON patients(user_id);
-CREATE INDEX idx_patients_email ON patients(email);
-CREATE INDEX idx_patients_assigned_doctor ON patients(assigned_doctor_id);
-CREATE INDEX idx_patients_wallet_address ON patients(wallet_address);
+-- Row Level Security Policies
 
-CREATE INDEX idx_exercise_templates_category ON exercise_templates(category);
-CREATE INDEX idx_exercise_templates_difficulty ON exercise_templates(difficulty_level);
-CREATE INDEX idx_exercise_templates_created_by ON exercise_templates(created_by_doctor_id);
+-- Doctors can only see their own data
+create policy "Doctors can view own profile" on public.doctors
+  for select using (auth.uid() = user_id);
 
-CREATE INDEX idx_routines_patient_id ON routines(patient_id);
-CREATE INDEX idx_routines_doctor_id ON routines(prescribed_by_doctor_id);
-CREATE INDEX idx_routines_active ON routines(is_active);
-CREATE INDEX idx_routines_date_range ON routines(start_date, end_date);
+create policy "Doctors can update own profile" on public.doctors
+  for update using (auth.uid() = user_id);
 
-CREATE INDEX idx_routine_exercises_routine_id ON routine_exercises(routine_id);
-CREATE INDEX idx_routine_exercises_template_id ON routine_exercises(exercise_template_id);
-
-CREATE INDEX idx_exercise_completions_patient_id ON exercise_completions(patient_id);
-CREATE INDEX idx_exercise_completions_routine_exercise_id ON exercise_completions(routine_exercise_id);
-CREATE INDEX idx_exercise_completions_date ON exercise_completions(completion_date);
-CREATE INDEX idx_exercise_completions_nft_status ON exercise_completions(nft_minted);
-
--- =====================================================
--- ROW LEVEL SECURITY POLICIES
--- =====================================================
-
--- Doctors can only see their own data and their patients
-ALTER TABLE doctors ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Doctors can view own profile" ON doctors FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Doctors can update own profile" ON doctors FOR UPDATE USING (auth.uid() = user_id);
+create policy "Doctors can insert own profile" on public.doctors
+  for insert with check (auth.uid() = user_id);
 
 -- Patients can only see their own data
-ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Patients can view own profile" ON patients FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Patients can update own profile" ON patients FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Doctors can view their patients" ON patients FOR SELECT USING (
-    assigned_doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid())
-);
-CREATE POLICY "Doctors can update their patients" ON patients FOR UPDATE USING (
-    assigned_doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid())
-);
+create policy "Patients can view own profile" on public.patients
+  for select using (auth.uid() = user_id);
 
--- Exercise templates - public read, doctors can create
-ALTER TABLE exercise_templates ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can view public exercise templates" ON exercise_templates FOR SELECT USING (is_public = true);
-CREATE POLICY "Doctors can create exercise templates" ON exercise_templates FOR INSERT WITH CHECK (
-    created_by_doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid())
-);
-CREATE POLICY "Doctors can update their own exercise templates" ON exercise_templates FOR UPDATE USING (
-    created_by_doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid())
-);
+create policy "Patients can update own profile" on public.patients
+  for update using (auth.uid() = user_id);
 
--- Routines - patients can see their own, doctors can see their prescribed routines
-ALTER TABLE routines ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Patients can view their own routines" ON routines FOR SELECT USING (
-    patient_id IN (SELECT id FROM patients WHERE user_id = auth.uid())
-);
-CREATE POLICY "Doctors can view routines they prescribed" ON routines FOR SELECT USING (
-    prescribed_by_doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid())
-);
-CREATE POLICY "Doctors can create routines for their patients" ON routines FOR INSERT WITH CHECK (
-    prescribed_by_doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid()) AND
-    patient_id IN (SELECT id FROM patients WHERE assigned_doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid()))
-);
-CREATE POLICY "Doctors can update routines they prescribed" ON routines FOR UPDATE USING (
-    prescribed_by_doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid())
-);
+create policy "Patients can insert own profile" on public.patients
+  for insert with check (auth.uid() = user_id);
 
--- Routine exercises - inherit permissions from routines
-ALTER TABLE routine_exercises ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view routine exercises if they can view the routine" ON routine_exercises FOR SELECT USING (
-    routine_id IN (
-        SELECT r.id FROM routines r 
-        WHERE r.patient_id IN (SELECT id FROM patients WHERE user_id = auth.uid())
-        OR r.prescribed_by_doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid())
+-- Doctors can see their assigned patients
+create policy "Doctors can view assigned patients" on public.patients
+  for select using (
+    assigned_doctor_id in (
+      select id from public.doctors where user_id = auth.uid()
     )
-);
+  );
 
--- Exercise completions - patients can create/view their own, doctors can view their patients'
-ALTER TABLE exercise_completions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Patients can view their own completions" ON exercise_completions FOR SELECT USING (
-    patient_id IN (SELECT id FROM patients WHERE user_id = auth.uid())
-);
-CREATE POLICY "Patients can create their own completions" ON exercise_completions FOR INSERT WITH CHECK (
-    patient_id IN (SELECT id FROM patients WHERE user_id = auth.uid())
-);
-CREATE POLICY "Doctors can view their patients' completions" ON exercise_completions FOR SELECT USING (
-    patient_id IN (SELECT id FROM patients WHERE assigned_doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid()))
-);
-CREATE POLICY "Doctors can update completions with feedback" ON exercise_completions FOR UPDATE USING (
-    patient_id IN (SELECT id FROM patients WHERE assigned_doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid()))
-);
+-- Routines visibility
+create policy "Patients can view their routines" on public.routines
+  for select using (
+    patient_id in (
+      select id from public.patients where user_id = auth.uid()
+    )
+  );
 
--- =====================================================
--- FUNCTIONS AND TRIGGERS
--- =====================================================
+create policy "Doctors can view routines they prescribed" on public.routines
+  for select using (
+    prescribed_by_doctor_id in (
+      select id from public.doctors where user_id = auth.uid()
+    )
+  );
 
--- Function to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
+create policy "Doctors can insert routines for their patients" on public.routines
+  for insert with check (
+    prescribed_by_doctor_id in (
+      select id from public.doctors where user_id = auth.uid()
+    )
+  );
+
+-- Exercise completions
+create policy "Patients can view their completions" on public.exercise_completions
+  for select using (
+    patient_id in (
+      select id from public.patients where user_id = auth.uid()
+    )
+  );
+
+create policy "Patients can insert their completions" on public.exercise_completions
+  for insert with check (
+    patient_id in (
+      select id from public.patients where user_id = auth.uid()
+    )
+  );
+
+create policy "Doctors can view completions of their patients" on public.exercise_completions
+  for select using (
+    patient_id in (
+      select p.id from public.patients p 
+      inner join public.doctors d on p.assigned_doctor_id = d.id 
+      where d.user_id = auth.uid()
+    )
+  );
+
+-- Functions to update updated_at timestamp
+create or replace function public.handle_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = timezone('utc'::text, now());
+  return new;
+end;
+$$ language plpgsql;
 
 -- Triggers for updated_at
-CREATE TRIGGER update_doctors_updated_at BEFORE UPDATE ON doctors FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-CREATE TRIGGER update_patients_updated_at BEFORE UPDATE ON patients FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-CREATE TRIGGER update_exercise_templates_updated_at BEFORE UPDATE ON exercise_templates FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-CREATE TRIGGER update_routines_updated_at BEFORE UPDATE ON routines FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+create trigger handle_updated_at before update on public.doctors
+  for each row execute procedure public.handle_updated_at();
 
--- =====================================================
--- SAMPLE DATA (Optional - for testing)
--- =====================================================
+create trigger handle_updated_at before update on public.patients
+  for each row execute procedure public.handle_updated_at();
 
--- Insert sample exercise templates
-INSERT INTO exercise_templates (name, description, category, difficulty_level, target_body_parts, instructions, precautions) VALUES
-('Push-ups', 'Basic push-up exercise for upper body strength', 'strength', 2, ARRAY['chest', 'shoulders', 'triceps'], 'Start in plank position, lower body until chest nearly touches floor, push back up', 'Avoid if you have wrist injuries'),
-('Squats', 'Bodyweight squats for lower body strength', 'strength', 2, ARRAY['legs', 'glutes'], 'Stand with feet shoulder-width apart, lower down as if sitting in chair, return to standing', 'Keep knees aligned with toes'),
-('Plank', 'Core strengthening isometric exercise', 'strength', 3, ARRAY['core', 'shoulders'], 'Hold plank position maintaining straight line from head to heels', 'Avoid if you have lower back issues'),
-('Wall Sits', 'Isometric leg strengthening exercise', 'strength', 2, ARRAY['legs', 'glutes'], 'Lean back against wall, slide down until thighs parallel to floor, hold position', 'Stop if you feel knee pain'),
-('Arm Circles', 'Shoulder mobility and warm-up exercise', 'flexibility', 1, ARRAY['shoulders'], 'Extend arms to sides, make small circles gradually increasing size', 'Start with small movements');
+create trigger handle_updated_at before update on public.routines
+  for each row execute procedure public.handle_updated_at();
 
--- Note: You'll need to insert actual user data after setting up authentication
--- and link doctors/patients to their respective auth.users entries
+create trigger handle_updated_at before update on public.exercises
+  for each row execute procedure public.handle_updated_at();
+
+-- Insert some sample exercises
+insert into public.exercises (name, description, category, difficulty_level, default_sets, default_reps, instructions) values
+('Push-ups', 'Basic upper body exercise targeting chest, shoulders, and triceps', 'upper_body', 2, 3, 10, 'Start in plank position, lower body to ground, push back up'),
+('Squats', 'Lower body exercise targeting quadriceps, hamstrings, and glutes', 'lower_body', 2, 3, 15, 'Stand with feet shoulder-width apart, lower as if sitting in chair, return to standing'),
+('Plank', 'Core strengthening exercise', 'core', 1, 3, null, 'Hold plank position with straight body line'),
+('Lunges', 'Lower body exercise for legs and glutes', 'lower_body', 3, 3, 10, 'Step forward, lower back knee toward ground, return to start'),
+('Mountain Climbers', 'Cardio and core exercise', 'cardio', 3, 3, 20, 'Start in plank, alternate bringing knees to chest rapidly')
+on conflict do nothing;
