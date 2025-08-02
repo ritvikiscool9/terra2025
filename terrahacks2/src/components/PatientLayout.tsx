@@ -63,7 +63,37 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
       if (error) throw error;
       
       if (patients && patients.length > 0) {
-        setPatientData(patients[0]);
+        let patient = patients[0];
+        
+        // If no doctor is assigned, assign the first available doctor
+        if (!patient.assigned_doctor_id) {
+          const { data: doctors, error: doctorError } = await supabase
+            .from('doctors')
+            .select('id, first_name, last_name, specialization')
+            .limit(1);
+            
+          if (!doctorError && doctors && doctors.length > 0) {
+            const doctor = doctors[0];
+            
+            // Update patient with assigned doctor
+            const { error: updateError } = await supabase
+              .from('patients')
+              .update({ assigned_doctor_id: doctor.id })
+              .eq('id', patient.id);
+              
+            if (!updateError) {
+              // Update patient object with doctor info
+              patient.assigned_doctor_id = doctor.id;
+              patient.doctors = {
+                first_name: doctor.first_name,
+                last_name: doctor.last_name,
+                specialization: doctor.specialization
+              };
+            }
+          }
+        }
+        
+        setPatientData(patient);
         
         // Count NFTs (for demo, we'll simulate this)
         setNftCount(3);
