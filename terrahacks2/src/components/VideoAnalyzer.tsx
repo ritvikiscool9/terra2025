@@ -11,6 +11,7 @@ export default function VideoAnalyzer() {
   const [isLoading, setIsLoading] = useState(false);
   const [analysis, setAnalysis] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [selectedExercise, setSelectedExercise] = useState<string>('squat');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,7 +74,8 @@ export default function VideoAnalyzer() {
         },
         body: JSON.stringify({ 
           videoBase64,
-          mimeType: selectedFile.type 
+          mimeType: selectedFile.type,
+          exerciseType: selectedExercise
         }),
       });
 
@@ -103,7 +105,83 @@ export default function VideoAnalyzer() {
       color: '#000000',
       backgroundColor: '#ffffff'
     }}>
-      <h1 style={{ color: '#000000' }}>Squat Exercise Video Analyzer</h1>
+      <h1 style={{ color: '#000000' }}>Exercise Video Analyzer</h1>
+      
+      {/* Exercise Selection */}
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{ color: '#000000', fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>
+          Select Exercise Type:
+        </label>
+        <select 
+          value={selectedExercise} 
+          onChange={(e) => setSelectedExercise(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            fontSize: '14px',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            backgroundColor: '#ffffff',
+            color: '#000000',
+            cursor: 'pointer',
+            minWidth: '200px'
+          }}
+        >
+          <optgroup label="Lower Body">
+            <option value="squat">Squats</option>
+            <option value="deadlift">Deadlifts</option>
+            <option value="lunge">Lunges</option>
+            <option value="bulgariansplit">Bulgarian Split Squats</option>
+            <option value="calfraiser">Calf Raises</option>
+            <option value="glute-bridge">Glute Bridges</option>
+            <option value="wall-sit">Wall Sits</option>
+          </optgroup>
+          <optgroup label="Upper Body - Push">
+            <option value="pushup">Push-ups</option>
+            <option value="benchpress">Bench Press</option>
+            <option value="shoulderpress">Shoulder Press</option>
+            <option value="dips">Dips</option>
+            <option value="pike-pushup">Pike Push-ups</option>
+          </optgroup>
+          <optgroup label="Upper Body - Pull">
+            <option value="pullup">Pull-ups</option>
+            <option value="chinup">Chin-ups</option>
+            <option value="row">Rows</option>
+            <option value="lat-pulldown">Lat Pulldowns</option>
+            <option value="bicep-curl">Bicep Curls</option>
+          </optgroup>
+          <optgroup label="Core & Stability">
+            <option value="plank">Plank</option>
+            <option value="side-plank">Side Plank</option>
+            <option value="mountain-climber">Mountain Climbers</option>
+            <option value="russian-twist">Russian Twists</option>
+            <option value="dead-bug">Dead Bug</option>
+            <option value="bird-dog">Bird Dog</option>
+          </optgroup>
+          <optgroup label="Full Body & Cardio">
+            <option value="burpee">Burpees</option>
+            <option value="jumping-jack">Jumping Jacks</option>
+            <option value="high-knees">High Knees</option>
+            <option value="jump-squat">Jump Squats</option>
+            <option value="thruster">Thrusters</option>
+            <option value="turkish-getup">Turkish Get-ups</option>
+          </optgroup>
+          <optgroup label="Olympic & Compound">
+            <option value="clean">Clean</option>
+            <option value="snatch">Snatch</option>
+            <option value="clean-and-jerk">Clean and Jerk</option>
+            <option value="overhead-squat">Overhead Squat</option>
+          </optgroup>
+          <optgroup label="Flexibility & Mobility">
+            <option value="yoga-pose">Yoga Poses</option>
+            <option value="stretching">Stretching</option>
+            <option value="foam-rolling">Foam Rolling</option>
+          </optgroup>
+          <optgroup label="Other">
+            <option value="other">Other Exercise</option>
+            <option value="custom">Custom Analysis</option>
+          </optgroup>
+        </select>
+      </div>
       
       {/* File Upload Area */}
       <div

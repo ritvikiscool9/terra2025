@@ -8,6 +8,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 interface RequestBody {
   videoBase64: string;
   mimeType?: string;
+  exerciseType?: string;
 }
 
 interface ResponseData {
@@ -48,6 +49,251 @@ function getMimeTypeFromBase64(base64: string): string {
   return 'video/mp4';
 }
 
+// Helper function to generate exercise-specific analysis prompts
+function getExercisePrompt(exerciseType: string): string {
+  const prompts = {
+    // Lower Body Exercises
+    squat: `Analyze this squat exercise video in detail. For each repetition:
+1. Count total repetitions
+2. Analyze: Knee tracking, hip hinge movement, back posture, depth, foot positioning, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    deadlift: `Analyze this deadlift exercise video in detail. For each repetition:
+1. Count total repetitions  
+2. Analyze: Hip hinge pattern, back posture, bar path, knee/hip extension timing, grip, setup
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    lunge: `Analyze this lunge exercise video in detail. For each repetition:
+1. Count total repetitions (each leg)
+2. Analyze: Step length, knee tracking, torso posture, hip flexibility, balance, depth
+3. Provide timestamps for form deviations  
+4. Give overall assessment and improvement recommendations`,
+
+    bulgariansplit: `Analyze this Bulgarian split squat video. For each repetition:
+1. Count total repetitions (each leg)
+2. Analyze: Rear foot elevation, front leg positioning, knee tracking, torso angle, balance
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    calfraiser: `Analyze this calf raise exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Range of motion, foot positioning, balance, tempo, peak contraction
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'glute-bridge': `Analyze this glute bridge exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Hip extension range, glute activation, back position, foot placement, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'wall-sit': `Analyze this wall sit exercise video:
+1. Measure hold duration
+2. Analyze: Thigh-to-floor angle, back contact with wall, foot positioning, posture maintenance
+3. Provide timestamps for form breakdown
+4. Give overall assessment and improvement recommendations`,
+
+    // Upper Body - Push
+    pushup: `Analyze this push-up exercise video in detail. For each repetition:
+1. Count total repetitions
+2. Analyze: Body alignment, hand placement, depth, elbow path, core engagement, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    benchpress: `Analyze this bench press exercise video in detail. For each repetition:
+1. Count total repetitions
+2. Analyze: Bar path, grip width, shoulder blade retraction, arch, range of motion, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    shoulderpress: `Analyze this shoulder press exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Starting position, bar path, core stability, lockout, grip width, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    dips: `Analyze this dips exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Body angle, depth, elbow tracking, shoulder stability, leg position, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'pike-pushup': `Analyze this pike push-up exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Pike angle, hand placement, head position, range of motion, body alignment
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    // Upper Body - Pull
+    pullup: `Analyze this pull-up exercise video in detail. For each repetition:
+1. Count total repetitions
+2. Analyze: Range of motion, grip width, body positioning, shoulder blade engagement, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    chinup: `Analyze this chin-up exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Grip position, range of motion, body stability, chin clearance, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    row: `Analyze this rowing exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Body position, pull path, shoulder blade retraction, elbow position, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'lat-pulldown': `Analyze this lat pulldown exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Grip width, pull path, body position, range of motion, shoulder engagement
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'bicep-curl': `Analyze this bicep curl exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Elbow stability, range of motion, wrist position, body stability, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    // Core & Stability
+    plank: `Analyze this plank exercise video:
+1. Measure hold duration
+2. Analyze: Body alignment, core engagement, shoulder stability, hip position, breathing
+3. Provide timestamps for form breakdown
+4. Give overall assessment and improvement recommendations`,
+
+    'side-plank': `Analyze this side plank exercise video:
+1. Measure hold duration (each side)
+2. Analyze: Body alignment, hip elevation, shoulder stability, core engagement
+3. Provide timestamps for form breakdown
+4. Give overall assessment and improvement recommendations`,
+
+    'mountain-climber': `Analyze this mountain climber exercise video. For each repetition:
+1. Count total repetitions (each leg)
+2. Analyze: Plank position maintenance, knee drive, tempo, core stability
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'russian-twist': `Analyze this Russian twist exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Torso angle, rotation range, hip position, core engagement, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'dead-bug': `Analyze this dead bug exercise video. For each repetition:
+1. Count total repetitions (each side)
+2. Analyze: Back contact with floor, limb coordination, core stability, range of motion
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'bird-dog': `Analyze this bird dog exercise video. For each repetition:
+1. Count total repetitions (each side)
+2. Analyze: Spine alignment, limb extension, balance, core stability, hip stability
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    // Full Body & Cardio
+    burpee: `Analyze this burpee exercise video in detail. For each repetition:
+1. Count total repetitions
+2. Analyze: Squat down, plank position, push-up form, jump back, jump up, flow
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'jumping-jack': `Analyze this jumping jack exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Coordination, landing mechanics, arm movement, tempo, body alignment
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'high-knees': `Analyze this high knees exercise video:
+1. Count total steps/repetitions
+2. Analyze: Knee height, posture, arm swing, landing, tempo, core engagement
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'jump-squat': `Analyze this jump squat exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Squat depth, jump height, landing mechanics, knee tracking, tempo
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    thruster: `Analyze this thruster exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Squat depth, front rack position, press path, hip drive, coordination
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'turkish-getup': `Analyze this Turkish get-up exercise video. For each repetition:
+1. Count total repetitions (each side)
+2. Analyze: Each phase transition, weight stability, movement quality, balance
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    // Olympic & Compound
+    clean: `Analyze this clean exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Setup, first pull, second pull, catch position, front squat, timing
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    snatch: `Analyze this snatch exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Setup, first pull, second pull, catch position, overhead squat, timing
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'clean-and-jerk': `Analyze this clean and jerk exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Clean phase, front squat, jerk setup, jerk execution, timing, coordination
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    'overhead-squat': `Analyze this overhead squat exercise video. For each repetition:
+1. Count total repetitions
+2. Analyze: Overhead stability, squat depth, bar path, mobility, balance
+3. Provide timestamps for form deviations
+4. Give overall assessment and improvement recommendations`,
+
+    // Flexibility & Mobility
+    'yoga-pose': `Analyze this yoga pose video:
+1. Identify the specific pose(s) being performed
+2. Analyze: Alignment, breathing, transitions, balance, flexibility, form
+3. Provide timestamps for alignment issues
+4. Give overall assessment and improvement recommendations`,
+
+    stretching: `Analyze this stretching exercise video:
+1. Identify the specific stretches being performed
+2. Analyze: Proper positioning, range of motion, breathing, hold duration, progression
+3. Provide timestamps for form issues
+4. Give overall assessment and improvement recommendations`,
+
+    'foam-rolling': `Analyze this foam rolling video:
+1. Identify body parts being targeted
+2. Analyze: Positioning, pressure application, rolling speed, technique, coverage
+3. Provide timestamps for technique issues
+4. Give overall assessment and improvement recommendations`,
+
+    // Custom/Other
+    custom: `Analyze this exercise video with comprehensive detail:
+1. First identify the exercise(s) being performed
+2. Count repetitions or measure duration as appropriate
+3. Provide detailed form analysis specific to the identified exercise
+4. Include timestamps for any form deviations or technique issues
+5. Give comprehensive assessment and specific improvement recommendations`,
+
+    other: `Analyze this exercise video in detail:
+1. First identify what exercise is being performed
+2. Count repetitions or measure duration as appropriate
+3. Analyze proper form and technique for this specific exercise
+4. Provide timestamps for any form deviations
+5. Give overall assessment and recommendations for improvement`
+  };
+
+  return prompts[exerciseType as keyof typeof prompts] || prompts.other;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ResponseData>
@@ -65,7 +311,7 @@ export default async function handler(
     }
 
     // Parse request body
-    const { videoBase64, mimeType }: RequestBody = req.body;
+    const { videoBase64, mimeType, exerciseType = 'squat' }: RequestBody = req.body;
     if (!videoBase64) {
       return res.status(400).json({ error: 'videoBase64 is required' });
     }
@@ -92,19 +338,7 @@ export default async function handler(
         }
       },
       {
-        text: `Analyze this squat exercise video in detail. For each repetition you can identify:
-
-1. Count the total number of squat repetitions
-2. For each rep, analyze:
-   - Knee tracking (do knees cave inward or track over toes properly?)
-   - Hip hinge movement (proper hip-back movement vs knee-dominant squat)
-   - Back posture (neutral spine vs excessive forward lean or arch)
-   - Depth (reaching proper depth with hip crease below knee level)
-   - Foot positioning and weight distribution
-   - Overall tempo and control
-
-3. Provide timestamps when possible for each rep and any form deviations
-4. Give an overall assessment and recommendations for improvement
+        text: getExercisePrompt(exerciseType) + `
 
 Please be specific about what you observe and provide constructive feedback.`
       }
