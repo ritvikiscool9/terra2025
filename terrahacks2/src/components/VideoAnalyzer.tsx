@@ -233,52 +233,56 @@ export default function VideoAnalyzer() {
   return (
     <div style={{ 
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '20px',
+      padding: '40px',
+      backgroundColor: '#f8fafc',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
     }}>
       <div style={{
         maxWidth: '900px',
         margin: '0 auto',
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderRadius: '20px',
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        borderRadius: '16px',
         padding: '40px',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)',
-        backdropFilter: 'blur(10px)'
+        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.08)',
+        border: '1px solid rgba(226, 232, 240, 0.8)'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <div style={{
-            width: '80px',
-            height: '80px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            width: '70px',
+            height: '70px',
+            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
             borderRadius: '50%',
             margin: '0 auto 20px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '30px'
+            fontSize: '28px',
+            boxShadow: '0 8px 20px rgba(37, 99, 235, 0.3)'
           }}>
             🏋️
           </div>
           <h1 style={{ 
-            color: '#2d3748',
-            fontSize: '2.5rem',
+            color: '#1e293b',
+            fontSize: '2.2rem',
             fontWeight: '700',
-            margin: '0 0 10px 0',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            margin: '0 0 8px 0',
+            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text'
           }}>
-            AI Exercise Analyzer
+            Exercise Analysis
           </h1>
           <p style={{ 
-            color: '#718096', 
-            fontSize: '18px',
+            color: '#64748b', 
+            fontSize: '16px',
             margin: '0',
-            lineHeight: '1.6'
+            lineHeight: '1.6',
+            maxWidth: '500px',
+            marginLeft: 'auto',
+            marginRight: 'auto'
           }}>
-            Upload any exercise video and get instant AI-powered form analysis and feedback
+            Record or upload your exercise videos for AI-powered form analysis and personalized feedback from your healthcare provider
           </p>
         </div>
         
@@ -296,7 +300,7 @@ export default function VideoAnalyzer() {
               padding: '12px 24px',
               fontSize: '16px',
               fontWeight: '600',
-              background: showCamera ? '#667eea' : cameraLoading ? '#a0aec0' : 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)',
+              background: showCamera ? '#2563eb' : cameraLoading ? '#94a3b8' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
               color: 'white',
               border: 'none',
               borderRadius: '25px',
@@ -305,7 +309,8 @@ export default function VideoAnalyzer() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              opacity: showCamera ? 0.7 : 1
+              opacity: showCamera ? 0.7 : 1,
+              boxShadow: !showCamera && !cameraLoading ? '0 4px 12px rgba(5, 150, 105, 0.3)' : 'none'
             }}
           >
             {cameraLoading ? (
@@ -670,7 +675,7 @@ export default function VideoAnalyzer() {
             fontSize: '18px',
             fontWeight: '600',
             background: selectedFile && !isLoading 
-              ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' 
+              ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' 
               : '#e2e8f0',
             color: selectedFile && !isLoading ? 'white' : '#a0aec0',
             border: 'none',
@@ -678,7 +683,7 @@ export default function VideoAnalyzer() {
             cursor: selectedFile && !isLoading ? 'pointer' : 'not-allowed',
             transition: 'all 0.3s ease',
             boxShadow: selectedFile && !isLoading 
-              ? '0 8px 25px rgba(102, 126, 234, 0.3)' 
+              ? '0 8px 25px rgba(37, 99, 235, 0.3)' 
               : 'none',
             transform: 'scale(1)',
             minWidth: '200px'
