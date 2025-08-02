@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, Patient, ExerciseCompletion } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabase-admin';
 
 interface PatientWithStats extends Patient {
   totalExercises?: number;
@@ -14,32 +15,63 @@ export default function DoctorDashboard() {
   const [patientCompletions, setPatientCompletions] = useState<ExerciseCompletion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [showCreateRoutine, setShowCreateRoutine] = useState(false);
+  const [availableExercises, setAvailableExercises] = useState<any[]>([]);
+  const [newRoutine, setNewRoutine] = useState({
+    title: '',
+    description: '',
+    patientId: '',
+    exercises: [] as any[]
+  });
 
   useEffect(() => {
     fetchPatients();
+    fetchAvailableExercises();
   }, []);
+
+  const fetchAvailableExercises = async () => {
+    try {
+      const { data: exercises, error } = await supabaseAdmin
+        .from('exercise_templates')
+        .select('*')
+        .eq('is_public', true)
+        .order('name');
+
+      if (error) throw error;
+      setAvailableExercises(exercises || []);
+    } catch (err) {
+      console.error('Error fetching exercises:', err);
+    }
+  };
 
   const fetchPatients = async () => {
     try {
       setIsLoading(true);
       setError('');
 
-      // For demo purposes, we'll fetch all patients
-      // In production, you'd filter by the logged-in doctor's ID
-      const { data: patientsData, error: patientsError } = await supabase
+      console.log('Fetching patients from Supabase...');
+      
+      // For demo purposes, we'll use admin client to bypass RLS
+      // In production, you'd use proper authentication
+      const { data: patientsData, error: patientsError } = await supabaseAdmin
         .from('patients')
         .select('*')
         .order('created_at', { ascending: false });
+
+      console.log('Supabase response:', { patientsData, patientsError });
 
       if (patientsError) throw patientsError;
 
       // Fetch exercise completion stats for each patient
       const patientsWithStats = await Promise.all(
         (patientsData || []).map(async (patient) => {
-          const { data: completions } = await supabase
+          console.log('Processing patient:', patient);
+          const { data: completions } = await supabaseAdmin
             .from('exercise_completions')
             .select('*')
             .eq('patient_id', patient.id);
+
+          console.log(`Completions for patient ${patient.id}:`, completions);
 
           const totalExercises = completions?.length || 0;
           const completedExercises = completions?.filter(c => c.completion_status === 'completed').length || 0;
@@ -56,8 +88,10 @@ export default function DoctorDashboard() {
         })
       );
 
+      console.log('Final patients with stats:', patientsWithStats);
       setPatients(patientsWithStats);
     } catch (err) {
+      console.error('Error fetching patients:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch patients');
     } finally {
       setIsLoading(false);
@@ -69,7 +103,7 @@ export default function DoctorDashboard() {
       setSelectedPatient(patient);
       
       // Fetch detailed exercise completions for this patient
-      const { data: completions, error } = await supabase
+      const { data: completions, error } = await supabaseAdmin
         .from('exercise_completions')
         .select('*')
         .eq('patient_id', patient.id)
@@ -79,6 +113,99 @@ export default function DoctorDashboard() {
       setPatientCompletions(completions || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch patient details');
+    }
+  };
+
+  const addExerciseToRoutine = (exercise: any) => {
+    const routineExercise = {
+      exercise_template_id: exercise.id,
+      exercise_name: exercise.name,
+      sets: 3,
+      reps: 10,
+      duration_seconds: null,
+      rest_seconds: 60,
+      order_in_routine: newRoutine.exercises.length + 1,
+      special_instructions: ''
+    };
+    
+    setNewRoutine(prev => ({
+      ...prev,
+      exercises: [...prev.exercises, routineExercise]
+    }));
+  };
+
+  const removeExerciseFromRoutine = (index: number) => {
+    setNewRoutine(prev => ({
+      ...prev,
+      exercises: prev.exercises.filter((_, i) => i !== index).map((ex, i) => ({
+        ...ex,
+        order_in_routine: i + 1
+      }))
+    }));
+  };
+
+  const updateRoutineExercise = (index: number, field: string, value: any) => {
+    setNewRoutine(prev => ({
+      ...prev,
+      exercises: prev.exercises.map((ex, i) => 
+        i === index ? { ...ex, [field]: value } : ex
+      )
+    }));
+  };
+
+  const createRoutine = async () => {
+    try {
+      if (!newRoutine.title || !newRoutine.patientId || newRoutine.exercises.length === 0) {
+        alert('Please fill in all required fields and add at least one exercise');
+        return;
+      }
+
+      // Create the routine
+      const { data: routine, error: routineError } = await supabaseAdmin
+        .from('routines')
+        .insert({
+          patient_id: newRoutine.patientId,
+          prescribed_by_doctor_id: '001', // For demo - in production, use actual doctor ID
+          title: newRoutine.title,
+          description: newRoutine.description,
+          start_date: new Date().toISOString().split('T')[0],
+          frequency_per_week: 3,
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (routineError) throw routineError;
+
+      // Add exercises to the routine
+      const routineExercises = newRoutine.exercises.map(ex => ({
+        routine_id: routine.id,
+        exercise_template_id: ex.exercise_template_id,
+        sets: ex.sets,
+        reps: ex.reps,
+        duration_seconds: ex.duration_seconds,
+        rest_seconds: ex.rest_seconds,
+        order_in_routine: ex.order_in_routine,
+        special_instructions: ex.special_instructions
+      }));
+
+      const { error: exercisesError } = await supabaseAdmin
+        .from('routine_exercises')
+        .insert(routineExercises);
+
+      if (exercisesError) throw exercisesError;
+
+      alert('Routine created successfully!');
+      setShowCreateRoutine(false);
+      setNewRoutine({
+        title: '',
+        description: '',
+        patientId: '',
+        exercises: []
+      });
+    } catch (err) {
+      console.error('Error creating routine:', err);
+      alert('Failed to create routine. Please try again.');
     }
   };
 
@@ -115,16 +242,40 @@ export default function DoctorDashboard() {
         marginBottom: '30px',
         border: '1px solid #e2e8f0'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-          <span style={{ fontSize: '32px', marginRight: '12px' }}>👨‍⚕️</span>
-          <h1 style={{ 
-            color: '#1e40af', 
-            fontSize: '28px',
-            fontWeight: '700',
-            margin: '0'
-          }}>
-            Doctor Dashboard
-          </h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <span style={{ fontSize: '32px', marginRight: '12px' }}>👨‍⚕️</span>
+            <h1 style={{ 
+              color: '#1e40af', 
+              fontSize: '28px',
+              fontWeight: '700',
+              margin: '0'
+            }}>
+              Doctor Dashboard
+            </h1>
+          </div>
+          <button
+            onClick={() => setShowCreateRoutine(true)}
+            style={{
+              backgroundColor: '#1e40af',
+              color: 'white',
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1e40af'}
+          >
+            <span>📋</span>
+            Create Routine
+          </button>
         </div>
         <p style={{ 
           color: '#6b7280', 
@@ -132,7 +283,7 @@ export default function DoctorDashboard() {
           margin: '0',
           lineHeight: '1.5'
         }}>
-          Monitor your patients' progress and exercise completions.
+          Monitor your patients' progress and create personalized workout routines.
         </p>
       </div>
 
@@ -475,6 +626,388 @@ export default function DoctorDashboard() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Create Routine Modal */}
+      {showCreateRoutine && (
+        <div style={{
+          position: 'fixed',
+          top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '24px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h2 style={{
+                color: '#1e40af',
+                fontSize: '24px',
+                fontWeight: '700',
+                margin: '0'
+              }}>
+                Create New Routine
+              </h2>
+              <button
+                onClick={() => setShowCreateRoutine(false)}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ padding: '24px' }}>
+              {/* Routine Basic Info */}
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    color: '#374151',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '8px'
+                  }}>
+                    Routine Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={newRoutine.title}
+                    onChange={(e) => setNewRoutine(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="e.g., Upper Body Strength Training"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    color: '#374151',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '8px'
+                  }}>
+                    Description
+                  </label>
+                  <textarea
+                    value={newRoutine.description}
+                    onChange={(e) => setNewRoutine(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Brief description of the routine goals and focus areas"
+                    rows={3}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      outline: 'none',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    color: '#374151',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '8px'
+                  }}>
+                    Assign to Patient *
+                  </label>
+                  <select
+                    value={newRoutine.patientId}
+                    onChange={(e) => setNewRoutine(prev => ({ ...prev, patientId: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="">Select a patient</option>
+                    {patients.map(patient => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.first_name} {patient.last_name} - {patient.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Exercise Selection */}
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{
+                  color: '#374151',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  marginBottom: '12px'
+                }}>
+                  Available Exercises
+                </h3>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                  gap: '12px',
+                  maxHeight: '200px',
+                  overflow: 'auto',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '16px'
+                }}>
+                  {availableExercises.map(exercise => (
+                    <div
+                      key={exercise.id}
+                      onClick={() => addExerciseToRoutine(exercise)}
+                      style={{
+                        padding: '12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        backgroundColor: '#f9fafb',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                    >
+                      <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '4px' }}>
+                        {exercise.name}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                        {exercise.category} • Level {exercise.difficulty_level}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Selected Exercises */}
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{
+                  color: '#374151',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  marginBottom: '12px'
+                }}>
+                  Routine Exercises ({newRoutine.exercises.length})
+                </h3>
+                {newRoutine.exercises.length === 0 ? (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '40px',
+                    border: '2px dashed #d1d5db',
+                    borderRadius: '8px',
+                    color: '#6b7280'
+                  }}>
+                    No exercises added yet. Click on exercises above to add them.
+                  </div>
+                ) : (
+                  <div>
+                    {newRoutine.exercises.map((exercise, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          border: '2px solid #e5e7eb',
+                          borderRadius: '8px',
+                          padding: '16px',
+                          marginBottom: '12px',
+                          backgroundColor: '#f9fafb'
+                        }}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '12px'
+                        }}>
+                          <h4 style={{
+                            color: '#1e40af',
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            margin: '0'
+                          }}>
+                            {exercise.order_in_routine}. {exercise.exercise_name}
+                          </h4>
+                          <button
+                            onClick={() => removeExerciseFromRoutine(index)}
+                            style={{
+                              backgroundColor: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '12px'
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                          gap: '12px'
+                        }}>
+                          <div>
+                            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                              Sets
+                            </label>
+                            <input
+                              type="number"
+                              value={exercise.sets}
+                              onChange={(e) => updateRoutineExercise(index, 'sets', parseInt(e.target.value) || 1)}
+                              min="1"
+                              style={{
+                                width: '100%',
+                                padding: '8px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '4px',
+                                fontSize: '14px'
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                              Reps
+                            </label>
+                            <input
+                              type="number"
+                              value={exercise.reps || ''}
+                              onChange={(e) => updateRoutineExercise(index, 'reps', parseInt(e.target.value) || null)}
+                              min="1"
+                              placeholder="10"
+                              style={{
+                                width: '100%',
+                                padding: '8px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '4px',
+                                fontSize: '14px'
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                              Duration (sec)
+                            </label>
+                            <input
+                              type="number"
+                              value={exercise.duration_seconds || ''}
+                              onChange={(e) => updateRoutineExercise(index, 'duration_seconds', parseInt(e.target.value) || null)}
+                              min="1"
+                              placeholder="30"
+                              style={{
+                                width: '100%',
+                                padding: '8px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '4px',
+                                fontSize: '14px'
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                              Rest (sec)
+                            </label>
+                            <input
+                              type="number"
+                              value={exercise.rest_seconds}
+                              onChange={(e) => updateRoutineExercise(index, 'rest_seconds', parseInt(e.target.value) || 60)}
+                              min="0"
+                              style={{
+                                width: '100%',
+                                padding: '8px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '4px',
+                                fontSize: '14px'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                paddingTop: '24px',
+                borderTop: '1px solid #e5e7eb'
+              }}>
+                <button
+                  onClick={() => setShowCreateRoutine(false)}
+                  style={{
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={createRoutine}
+                  style={{
+                    backgroundColor: '#1e40af',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Create Routine
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
