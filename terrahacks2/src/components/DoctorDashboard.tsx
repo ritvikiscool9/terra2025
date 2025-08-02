@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, Patient, ExerciseCompletion } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabase-admin';
 
 interface PatientWithStats extends Patient {
   totalExercises?: number;
@@ -24,22 +25,29 @@ export default function DoctorDashboard() {
       setIsLoading(true);
       setError('');
 
-      // For demo purposes, we'll fetch all patients
-      // In production, you'd filter by the logged-in doctor's ID
-      const { data: patientsData, error: patientsError } = await supabase
+      console.log('Fetching patients from Supabase...');
+      
+      // For demo purposes, we'll use admin client to bypass RLS
+      // In production, you'd use proper authentication
+      const { data: patientsData, error: patientsError } = await supabaseAdmin
         .from('patients')
         .select('*')
         .order('created_at', { ascending: false });
+
+      console.log('Supabase response:', { patientsData, patientsError });
 
       if (patientsError) throw patientsError;
 
       // Fetch exercise completion stats for each patient
       const patientsWithStats = await Promise.all(
         (patientsData || []).map(async (patient) => {
-          const { data: completions } = await supabase
+          console.log('Processing patient:', patient);
+          const { data: completions } = await supabaseAdmin
             .from('exercise_completions')
             .select('*')
             .eq('patient_id', patient.id);
+
+          console.log(`Completions for patient ${patient.id}:`, completions);
 
           const totalExercises = completions?.length || 0;
           const completedExercises = completions?.filter(c => c.completion_status === 'completed').length || 0;
@@ -56,8 +64,10 @@ export default function DoctorDashboard() {
         })
       );
 
+      console.log('Final patients with stats:', patientsWithStats);
       setPatients(patientsWithStats);
     } catch (err) {
+      console.error('Error fetching patients:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch patients');
     } finally {
       setIsLoading(false);
@@ -69,7 +79,7 @@ export default function DoctorDashboard() {
       setSelectedPatient(patient);
       
       // Fetch detailed exercise completions for this patient
-      const { data: completions, error } = await supabase
+      const { data: completions, error } = await supabaseAdmin
         .from('exercise_completions')
         .select('*')
         .eq('patient_id', patient.id)
