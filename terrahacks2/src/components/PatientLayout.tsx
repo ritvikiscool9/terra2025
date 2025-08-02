@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PatientSidebar from './PatientSidebar';
 import VideoAnalyzer from './VideoAnalyzer';
+import { supabaseAdmin } from '../lib/supabase-admin';
 
 interface PatientLayoutProps {
   initialPage?: string;
@@ -8,6 +9,67 @@ interface PatientLayoutProps {
 
 export default function PatientLayout({ initialPage = 'workout' }: PatientLayoutProps) {
   const [currentPage, setCurrentPage] = useState(initialPage);
+  const [patientRoutines, setPatientRoutines] = useState<any[]>([]);
+  const [selectedRoutine, setSelectedRoutine] = useState<any>(null);
+  const [routineExercises, setRoutineExercises] = useState<any[]>([]);
+  const [isLoadingRoutines, setIsLoadingRoutines] = useState(false);
+
+  useEffect(() => {
+    if (currentPage === 'routines') {
+      fetchPatientRoutines();
+    }
+  }, [currentPage]);
+
+  const fetchPatientRoutines = async () => {
+    try {
+      setIsLoadingRoutines(true);
+      
+      // For demo purposes, we'll get routines for all patients
+      // In production, you'd filter by the logged-in patient's ID
+      const { data: routines, error } = await supabaseAdmin
+        .from('routines')
+        .select(`
+          *,
+          patients(first_name, last_name, email),
+          doctors(first_name, last_name)
+        `)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPatientRoutines(routines || []);
+    } catch (err) {
+      console.error('Error fetching routines:', err);
+    } finally {
+      setIsLoadingRoutines(false);
+    }
+  };
+
+  const fetchRoutineExercises = async (routineId: string) => {
+    try {
+      const { data: exercises, error } = await supabaseAdmin
+        .from('routine_exercises')
+        .select(`
+          *,
+          exercise_templates(name, description, instructions, category, difficulty_level)
+        `)
+        .eq('routine_id', routineId)
+        .order('order_in_routine');
+
+      if (error) throw error;
+      setRoutineExercises(exercises || []);
+    } catch (err) {
+      console.error('Error fetching routine exercises:', err);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   const renderContent = () => {
     switch (currentPage) {
@@ -67,103 +129,306 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                 borderBottom: '2px solid #e2e8f0',
                 paddingBottom: '12px'
               }}>
-                Active Routines
+                My Assigned Routines ({patientRoutines.length})
               </h2>
               
-              {/* Sample Routine Card */}
-              <div style={{
-                border: '2px solid #dbeafe',
-                borderRadius: '8px',
-                padding: '20px',
-                marginBottom: '16px',
-                backgroundColor: '#f0f9ff'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
-                  <h3 style={{
-                    color: '#1e40af',
-                    fontSize: '18px',
-                    fontWeight: '600',
-                    margin: '0'
-                  }}>
-                    Upper Body Rehabilitation
-                  </h3>
-                  <span style={{
-                    backgroundColor: '#22c55e',
-                    color: 'white',
-                    padding: '4px 12px',
-                    borderRadius: '20px',
-                    fontSize: '12px',
-                    fontWeight: '500'
-                  }}>
-                    ACTIVE
-                  </span>
+              {isLoadingRoutines ? (
+                <div style={{ textAlign: 'center', padding: '40px' }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    border: '4px solid #e2e8f0',
+                    borderTop: '4px solid #1e40af',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    margin: '0 auto 20px'
+                  }} />
+                  <p style={{ color: '#6b7280' }}>Loading your routines...</p>
                 </div>
-                
-                <div style={{ marginBottom: '12px' }}>
-                  <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
-                    <strong>Prescribed by:</strong> Dr. Smith
-                  </p>
-                  <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
-                    <strong>Frequency:</strong> 3 times per week
-                  </p>
-                  <p style={{ color: '#6b7280', margin: '0', fontSize: '14px' }}>
-                    <strong>Duration:</strong> Jan 15 - Mar 15, 2025
-                  </p>
-                </div>
-                
-                <p style={{ 
-                  color: '#374151', 
-                  fontSize: '14px', 
-                  margin: '0 0 16px 0',
-                  lineHeight: '1.4'
+              ) : patientRoutines.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '40px',
+                  border: '2px dashed #d1d5db',
+                  borderRadius: '8px',
+                  backgroundColor: '#f9fafb'
                 }}>
-                  Focus on shoulder mobility and strength recovery. Complete all exercises with proper form.
-                </p>
-                
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button style={{
-                    backgroundColor: '#1e40af',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    cursor: 'pointer'
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+                  <h3 style={{ color: '#6b7280', marginBottom: '8px' }}>No Routines Assigned</h3>
+                  <p style={{ color: '#9ca3af', fontSize: '14px', margin: '0' }}>
+                    Your doctor hasn't assigned any routines yet. Check back later or contact your healthcare provider.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  {patientRoutines.map((routine) => (
+                    <div
+                      key={routine.id}
+                      style={{
+                        border: '2px solid #dbeafe',
+                        borderRadius: '8px',
+                        padding: '20px',
+                        marginBottom: '16px',
+                        backgroundColor: '#f0f9ff'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
+                        <h3 style={{
+                          color: '#1e40af',
+                          fontSize: '18px',
+                          fontWeight: '600',
+                          margin: '0'
+                        }}>
+                          {routine.title}
+                        </h3>
+                        <span style={{
+                          backgroundColor: routine.is_active ? '#22c55e' : '#6b7280',
+                          color: 'white',
+                          padding: '4px 12px',
+                          borderRadius: '20px',
+                          fontSize: '12px',
+                          fontWeight: '500'
+                        }}>
+                          {routine.is_active ? 'ACTIVE' : 'INACTIVE'}
+                        </span>
+                      </div>
+                      
+                      <div style={{ marginBottom: '12px' }}>
+                        <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
+                          <strong>Prescribed by:</strong> Dr. {routine.doctors?.first_name} {routine.doctors?.last_name}
+                        </p>
+                        <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
+                          <strong>Frequency:</strong> {routine.frequency_per_week} times per week
+                        </p>
+                        <p style={{ color: '#6b7280', margin: '0', fontSize: '14px' }}>
+                          <strong>Start Date:</strong> {formatDate(routine.start_date)}
+                          {routine.end_date && ` - ${formatDate(routine.end_date)}`}
+                        </p>
+                      </div>
+                      
+                      {routine.description && (
+                        <p style={{ 
+                          color: '#374151', 
+                          fontSize: '14px', 
+                          margin: '0 0 16px 0',
+                          lineHeight: '1.4'
+                        }}>
+                          {routine.description}
+                        </p>
+                      )}
+                      
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button 
+                          onClick={() => {
+                            setSelectedRoutine(routine);
+                            fetchRoutineExercises(routine.id);
+                          }}
+                          style={{
+                            backgroundColor: '#1e40af',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          View Exercises
+                        </button>
+                        <button 
+                          onClick={() => setCurrentPage('workout')}
+                          style={{
+                            backgroundColor: 'transparent',
+                            color: '#1e40af',
+                            border: '2px solid #1e40af',
+                            padding: '8px 16px',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Start Session
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Routine Exercises Modal */}
+            {selectedRoutine && (
+              <div style={{
+                position: 'fixed',
+                top: '0',
+                left: '0',
+                right: '0',
+                bottom: '0',
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+                padding: '20px'
+              }}>
+                <div style={{
+                  backgroundColor: 'white',
+                  borderRadius: '12px',
+                  width: '100%',
+                  maxWidth: '700px',
+                  maxHeight: '90vh',
+                  overflow: 'auto',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+                }}>
+                  {/* Modal Header */}
+                  <div style={{
+                    padding: '24px',
+                    borderBottom: '1px solid #e5e7eb',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
                   }}>
-                    View Exercises
-                  </button>
-                  <button style={{
-                    backgroundColor: 'transparent',
-                    color: '#1e40af',
-                    border: '2px solid #1e40af',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    cursor: 'pointer'
-                  }}>
-                    Start Session
-                  </button>
+                    <h2 style={{
+                      color: '#1e40af',
+                      fontSize: '24px',
+                      fontWeight: '700',
+                      margin: '0'
+                    }}>
+                      {selectedRoutine.title}
+                    </h2>
+                    <button
+                      onClick={() => setSelectedRoutine(null)}
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        fontSize: '24px',
+                        cursor: 'pointer',
+                        color: '#6b7280'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Modal Content */}
+                  <div style={{ padding: '24px' }}>
+                    <div style={{ marginBottom: '24px' }}>
+                      <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
+                        <strong>Prescribed by:</strong> Dr. {selectedRoutine.doctors?.first_name} {selectedRoutine.doctors?.last_name}
+                      </p>
+                      <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
+                        <strong>Frequency:</strong> {selectedRoutine.frequency_per_week} times per week
+                      </p>
+                      {selectedRoutine.description && (
+                        <p style={{ color: '#374151', fontSize: '14px', marginTop: '12px' }}>
+                          {selectedRoutine.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <h3 style={{
+                      color: '#374151',
+                      fontSize: '18px',
+                      fontWeight: '600',
+                      marginBottom: '16px'
+                    }}>
+                      Exercises ({routineExercises.length})
+                    </h3>
+
+                    {routineExercises.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+                        Loading exercises...
+                      </div>
+                    ) : (
+                      <div>
+                        {routineExercises.map((exercise, index) => (
+                          <div
+                            key={exercise.id}
+                            style={{
+                              border: '2px solid #e5e7eb',
+                              borderRadius: '8px',
+                              padding: '16px',
+                              marginBottom: '12px',
+                              backgroundColor: '#f9fafb'
+                            }}
+                          >
+                            <div style={{ marginBottom: '8px' }}>
+                              <h4 style={{
+                                color: '#1e40af',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                margin: '0 0 4px 0'
+                              }}>
+                                {exercise.order_in_routine}. {exercise.exercise_templates?.name}
+                              </h4>
+                              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
+                                {exercise.exercise_templates?.category} • Level {exercise.exercise_templates?.difficulty_level}
+                              </div>
+                            </div>
+                            
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+                              gap: '12px',
+                              marginBottom: '12px',
+                              padding: '12px',
+                              backgroundColor: '#f3f4f6',
+                              borderRadius: '6px'
+                            }}>
+                              <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Sets</div>
+                                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e40af' }}>{exercise.sets}</div>
+                              </div>
+                              {exercise.reps && (
+                                <div style={{ textAlign: 'center' }}>
+                                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Reps</div>
+                                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e40af' }}>{exercise.reps}</div>
+                                </div>
+                              )}
+                              {exercise.duration_seconds && (
+                                <div style={{ textAlign: 'center' }}>
+                                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Duration</div>
+                                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e40af' }}>{exercise.duration_seconds}s</div>
+                                </div>
+                              )}
+                              <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Rest</div>
+                                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e40af' }}>{exercise.rest_seconds}s</div>
+                              </div>
+                            </div>
+
+                            {exercise.exercise_templates?.instructions && (
+                              <p style={{ 
+                                color: '#374151', 
+                                fontSize: '14px', 
+                                margin: '0',
+                                lineHeight: '1.4'
+                              }}>
+                                <strong>Instructions:</strong> {exercise.exercise_templates.instructions}
+                              </p>
+                            )}
+
+                            {exercise.special_instructions && (
+                              <p style={{ 
+                                color: '#059669', 
+                                fontSize: '14px', 
+                                margin: '8px 0 0 0',
+                                lineHeight: '1.4',
+                                fontStyle: 'italic'
+                              }}>
+                                <strong>Special Notes:</strong> {exercise.special_instructions}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              {/* No routines message (for when there are no active routines) */}
-              <div style={{
-                textAlign: 'center',
-                padding: '40px',
-                border: '2px dashed #d1d5db',
-                borderRadius: '8px',
-                backgroundColor: '#f9fafb',
-                display: 'none' // Show this when no routines exist
-              }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
-                <h3 style={{ color: '#6b7280', marginBottom: '8px' }}>No Active Routines</h3>
-                <p style={{ color: '#9ca3af', fontSize: '14px', margin: '0' }}>
-                  Your doctor hasn't assigned any routines yet. Check back later or contact your healthcare provider.
-                </p>
-              </div>
-            </div>
+            )}
 
             {/* Medical Disclaimer */}
             <div style={{
