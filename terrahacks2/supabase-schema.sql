@@ -228,3 +228,17 @@ insert into public.exercises (name, description, category, difficulty_level, def
 ('Lunges', 'Lower body exercise for legs and glutes', 'lower_body', 3, 3, 10, 'Step forward, lower back knee toward ground, return to start'),
 ('Mountain Climbers', 'Cardio and core exercise', 'cardio', 3, 3, 20, 'Start in plank, alternate bringing knees to chest rapidly')
 on conflict do nothing;
+
+-- Insert sample doctor (for demo purposes)
+-- Note: In production, doctors would be created through the signup process
+insert into public.doctors (id, user_id, email, first_name, last_name, medical_license, specialization, hospital_affiliation, is_verified) values
+('550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', 'dr.smith@hospital.com', 'John', 'Smith', 'MD123456', 'Physical Therapy', 'General Hospital', true)
+on conflict (id) do nothing;
+
+-- Insert sample patients (for demo purposes)  
+-- Note: In production, patients would be created through the signup process
+insert into public.patients (id, user_id, email, first_name, last_name, date_of_birth, phone, medical_conditions, nft_wallet_address, assigned_doctor_id) values
+('660e8400-e29b-41d4-a716-446655440001', '660e8400-e29b-41d4-a716-446655440001', 'patient1@email.com', 'Jane', 'Doe', '1990-05-15', '555-0101', ARRAY['Lower back pain', 'Muscle strain'], '0x1234567890123456789012345678901234567890', '550e8400-e29b-41d4-a716-446655440000'),
+('660e8400-e29b-41d4-a716-446655440002', '660e8400-e29b-41d4-a716-446655440002', 'patient2@email.com', 'Mike', 'Johnson', '1985-08-22', '555-0102', ARRAY['Knee injury', 'Post-surgery rehabilitation'], '0x0987654321098765432109876543210987654321', '550e8400-e29b-41d4-a716-446655440000'),
+('660e8400-e29b-41d4-a716-446655440003', '660e8400-e29b-41d4-a716-446655440003', 'patient3@email.com', 'Sarah', 'Wilson', '1992-12-03', '555-0103', ARRAY['Shoulder impingement', 'Tennis elbow'], '0x1111222233334444555566667777888899990000', '550e8400-e29b-41d4-a716-446655440000')
+on conflict (id) do nothing;

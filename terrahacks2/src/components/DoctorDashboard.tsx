@@ -16,6 +16,8 @@ export default function DoctorDashboard() {
   const [error, setError] = useState<string>('');
   const [showCreateRoutine, setShowCreateRoutine] = useState(false);
   const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
+  const [isGeneratingExercises, setIsGeneratingExercises] = useState(false);
+  const [selectedPatientForRoutine, setSelectedPatientForRoutine] = useState<PatientWithStats | null>(null);
   const [newRoutine, setNewRoutine] = useState({
     title: '',
     description: '',
@@ -39,6 +41,51 @@ export default function DoctorDashboard() {
       setAvailableExercises(exercises || []);
     } catch (err) {
       console.error('Error fetching exercises:', err);
+    }
+  };
+
+  const generatePersonalizedExercises = async (patient: PatientWithStats) => {
+    try {
+      setIsGeneratingExercises(true);
+      setAvailableExercises([]); // Clear current exercises while loading
+
+      console.log('Generating personalized exercises for patient:', patient);
+
+      if (!patient.medical_conditions || patient.medical_conditions.length === 0) {
+        // Fallback to default exercises if no medical conditions
+        await fetchAvailableExercises();
+        return;
+      }
+
+      const response = await fetch('/api/generate-exercises', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          patientConditions: patient.medical_conditions,
+          patientName: `${patient.first_name} ${patient.last_name}`
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.exercises) {
+        console.log('Generated exercises:', data.exercises);
+        setAvailableExercises(data.exercises);
+      } else {
+        console.error('Error generating exercises:', data.error);
+        // Fallback to default exercises
+        await fetchAvailableExercises();
+        alert('Could not generate personalized exercises. Using default exercises instead.');
+      }
+    } catch (error) {
+      console.error('Error generating personalized exercises:', error);
+      // Fallback to default exercises
+      await fetchAvailableExercises();
+      alert('Could not generate personalized exercises. Using default exercises instead.');
+    } finally {
+      setIsGeneratingExercises(false);
     }
   };
 
@@ -157,27 +204,90 @@ export default function DoctorDashboard() {
         return;
       }
 
+      console.log('Creating routine with data:', newRoutine);
+
+      // First, get the doctor ID for the current session (using first doctor for demo)
+      const { data: doctors, error: doctorError } = await supabase
+        .from('doctors')
+        .select('id')
+        .limit(1);
+
+      if (doctorError || !doctors || doctors.length === 0) {
+        console.error('No doctor found:', doctorError);
+        alert('Doctor information not found. Please ensure you are logged in as a doctor.');
+        return;
+      }
+
+      const doctorId = doctors[0].id;
+      console.log('Using doctor ID:', doctorId);
+
+      // First, save any AI-generated exercises to the exercises table
+      const exercisesToSave = [];
+      const exerciseIdMapping = new Map();
+
+      for (const ex of newRoutine.exercises) {
+        if (ex.exercise_template_id.startsWith('ai-generated-')) {
+          // This is an AI-generated exercise, save it to the database first
+          const exerciseData = {
+            name: ex.exercise_name,
+            description: availableExercises.find(e => e.id === ex.exercise_template_id)?.description || 'AI-generated rehabilitation exercise',
+            category: availableExercises.find(e => e.id === ex.exercise_template_id)?.category || 'core',
+            difficulty_level: availableExercises.find(e => e.id === ex.exercise_template_id)?.difficulty_level || 1,
+            default_sets: ex.sets,
+            default_reps: ex.reps,
+            default_duration_seconds: ex.duration_seconds,
+            instructions: availableExercises.find(e => e.id === ex.exercise_template_id)?.instructions || 'Follow your physical therapist\'s guidance for proper form.'
+          };
+
+          const { data: savedExercise, error: exerciseError } = await supabase
+            .from('exercises')
+            .insert(exerciseData)
+            .select()
+            .single();
+
+          if (exerciseError) {
+            console.error('Error saving exercise:', exerciseError);
+            throw exerciseError;
+          }
+
+          exerciseIdMapping.set(ex.exercise_template_id, savedExercise.id);
+          console.log(`Saved AI exercise: ${ex.exercise_name} with ID: ${savedExercise.id}`);
+        } else {
+          // Use existing exercise ID
+          exerciseIdMapping.set(ex.exercise_template_id, ex.exercise_template_id);
+        }
+      }
+
       // Create the routine
+      const routineData = {
+        patient_id: newRoutine.patientId,
+        prescribed_by_doctor_id: doctorId,
+        title: newRoutine.title,
+        description: newRoutine.description,
+        start_date: new Date().toISOString().split('T')[0],
+        frequency_per_week: 3,
+        is_active: true
+      };
+
+      console.log('Creating routine with data:', routineData);
+
       const { data: routine, error: routineError } = await supabase
         .from('routines')
-        .insert({
-          patient_id: newRoutine.patientId,
-          prescribed_by_doctor_id: '001', // For demo - in production, use actual doctor ID
-          title: newRoutine.title,
-          description: newRoutine.description,
-          start_date: new Date().toISOString().split('T')[0],
-          frequency_per_week: 3,
-          is_active: true
-        })
+        .insert(routineData)
         .select()
         .single();
 
-      if (routineError) throw routineError;
+      if (routineError) {
+        console.error('Error creating routine:', routineError);
+        throw routineError;
+      }
+
+      console.log('Routine created successfully:', routine);
 
       // Add exercises to the routine
       const routineExercises = newRoutine.exercises.map(ex => ({
         routine_id: routine.id,
-        exercise_id: ex.exercise_template_id,
+        exercise_id: exerciseIdMapping.get(ex.exercise_template_id),
         sets: ex.sets,
         reps: ex.reps,
         duration_seconds: ex.duration_seconds,
@@ -186,23 +296,35 @@ export default function DoctorDashboard() {
         notes: ex.special_instructions
       }));
 
+      console.log('Adding routine exercises:', routineExercises);
+
       const { error: exercisesError } = await supabase
         .from('routine_exercises')
         .insert(routineExercises);
 
-      if (exercisesError) throw exercisesError;
+      if (exercisesError) {
+        console.error('Error adding exercises to routine:', exercisesError);
+        throw exercisesError;
+      }
+
+      console.log('Routine exercises added successfully');
 
       alert('Routine created successfully!');
       setShowCreateRoutine(false);
+      setSelectedPatientForRoutine(null);
+      setAvailableExercises([]);
       setNewRoutine({
         title: '',
         description: '',
         patientId: '',
         exercises: []
       });
+
+      // Refresh the patients list to show updated data
+      await fetchPatients();
     } catch (err) {
       console.error('Error creating routine:', err);
-      alert('Failed to create routine. Please try again.');
+      alert(`Failed to create routine: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again.`);
     }
   };
 
@@ -667,7 +789,17 @@ export default function DoctorDashboard() {
                 Create New Routine
               </h2>
               <button
-                onClick={() => setShowCreateRoutine(false)}
+                onClick={() => {
+                  setShowCreateRoutine(false);
+                  setSelectedPatientForRoutine(null);
+                  setAvailableExercises([]);
+                  setNewRoutine({
+                    title: '',
+                    description: '',
+                    patientId: '',
+                    exercises: []
+                  });
+                }}
                 style={{
                   backgroundColor: 'transparent',
                   border: 'none',
@@ -749,7 +881,21 @@ export default function DoctorDashboard() {
                   </label>
                   <select
                     value={newRoutine.patientId}
-                    onChange={(e) => setNewRoutine(prev => ({ ...prev, patientId: e.target.value }))}
+                    onChange={async (e) => {
+                      const patientId = e.target.value;
+                      setNewRoutine(prev => ({ ...prev, patientId, exercises: [] })); // Clear exercises when patient changes
+                      
+                      if (patientId) {
+                        const selectedPatient = patients.find(p => p.id === patientId);
+                        if (selectedPatient) {
+                          setSelectedPatientForRoutine(selectedPatient);
+                          await generatePersonalizedExercises(selectedPatient);
+                        }
+                      } else {
+                        setSelectedPatientForRoutine(null);
+                        setAvailableExercises([]);
+                      }
+                    }}
                     style={{
                       width: '100%',
                       padding: '12px',
@@ -777,42 +923,100 @@ export default function DoctorDashboard() {
                   fontWeight: '600',
                   marginBottom: '12px'
                 }}>
-                  Available Exercises
+                  {selectedPatientForRoutine ? (
+                    <>
+                      Personalized Exercises for {selectedPatientForRoutine.first_name} {selectedPatientForRoutine.last_name}
+                      {selectedPatientForRoutine.medical_conditions && selectedPatientForRoutine.medical_conditions.length > 0 && (
+                        <div style={{ 
+                          fontSize: '14px', 
+                          color: '#6b7280', 
+                          fontWeight: '400',
+                          marginTop: '4px'
+                        }}>
+                          Medical Conditions: {selectedPatientForRoutine.medical_conditions.join(', ')}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    'Available Exercises'
+                  )}
                 </h3>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                  gap: '12px',
-                  maxHeight: '200px',
-                  overflow: 'auto',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '8px',
-                  padding: '16px'
-                }}>
-                  {availableExercises.map(exercise => (
-                    <div
-                      key={exercise.id}
-                      onClick={() => addExerciseToRoutine(exercise)}
-                      style={{
-                        padding: '12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        backgroundColor: '#f9fafb',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                    >
-                      <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '4px' }}>
-                        {exercise.name}
+                
+                {isGeneratingExercises ? (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '40px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    backgroundColor: '#f9fafb'
+                  }}>
+                    <div style={{
+                      width: '20px',
+                      height: '20px',
+                      border: '2px solid #e5e7eb',
+                      borderTop: '2px solid #1e40af',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      marginRight: '12px'
+                    }} />
+                    <span style={{ color: '#6b7280' }}>
+                      Generating personalized exercises using AI...
+                    </span>
+                  </div>
+                ) : newRoutine.patientId && availableExercises.length === 0 ? (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '40px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    backgroundColor: '#f9fafb',
+                    color: '#6b7280'
+                  }}>
+                    Please select a patient to generate personalized exercises
+                  </div>
+                ) : (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                    gap: '12px',
+                    maxHeight: '200px',
+                    overflow: 'auto',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '16px'
+                  }}>
+                    {availableExercises.map(exercise => (
+                      <div
+                        key={exercise.id}
+                        onClick={() => addExerciseToRoutine(exercise)}
+                        style={{
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          backgroundColor: '#f9fafb',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                      >
+                        <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '4px' }}>
+                          {exercise.name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                          {exercise.category} • Level {exercise.difficulty_level}
+                        </div>
+                        {exercise.description && (
+                          <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                            {exercise.description}
+                          </div>
+                        )}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                        {exercise.category} • Level {exercise.difficulty_level}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Selected Exercises */}
@@ -973,7 +1177,17 @@ export default function DoctorDashboard() {
                 borderTop: '1px solid #e5e7eb'
               }}>
                 <button
-                  onClick={() => setShowCreateRoutine(false)}
+                  onClick={() => {
+                    setShowCreateRoutine(false);
+                    setSelectedPatientForRoutine(null);
+                    setAvailableExercises([]);
+                    setNewRoutine({
+                      title: '',
+                      description: '',
+                      patientId: '',
+                      exercises: []
+                    });
+                  }}
                   style={{
                     backgroundColor: '#6b7280',
                     color: 'white',
