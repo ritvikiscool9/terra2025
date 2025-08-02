@@ -1,6 +1,6 @@
 // Test script for basic NFT minting functionality
 // Run with: npm run test:nft
-import { createThirdwebClient, getContract } from "thirdweb";
+import { createThirdwebClient, getContract, sendTransaction } from "thirdweb";
 import { polygonAmoy } from "thirdweb/chains";
 import { mintTo } from "thirdweb/extensions/erc721";
 import { privateKeyToAccount } from "thirdweb/wallets";
@@ -50,6 +50,12 @@ async function testActualMinting() {
     
     console.log('\n🔄 Setting up contract and wallet...');
     
+    // Debug: Verify contract address
+    console.log('🔍 Debug Info:');
+    console.log('   Contract Address from env:', process.env.NFT_CONTRACT_ADDRESS);
+    console.log('   Expected Contract:', '0x15bfFBC29124dF7609039c3d8AEc946d2053c8Bf');
+    console.log('   Addresses match:', process.env.NFT_CONTRACT_ADDRESS === '0x15bfFBC29124dF7609039c3d8AEc946d2053c8Bf');
+    
     // Get the contract
     const contract = getContract({
       client,
@@ -59,6 +65,7 @@ async function testActualMinting() {
     
     console.log('✅ Contract connection established');
     console.log('📄 Contract address:', process.env.NFT_CONTRACT_ADDRESS);
+    console.log('🌐 Network:', polygonAmoy.name, '(Chain ID:', polygonAmoy.id + ')');
     
     // Create admin account from private key
     const adminAccount = privateKeyToAccount({
@@ -104,19 +111,32 @@ async function testActualMinting() {
     // Attempt the mint using v5 syntax
     console.log('🔄 Sending transaction...');
     
-    const result = await mintTo({
+    const transaction = mintTo({
       contract,
       to: process.env.TEST_WALLET_ADDRESS,
       nft: nftMetadata,
+    });
+    
+    console.log('🔄 Executing transaction with admin account...');
+    
+    // Send the transaction with the admin account
+    const receipt = await sendTransaction({
+      transaction,
       account: adminAccount,
     });
     
     console.log('\n🎉 SUCCESS! NFT minted successfully!');
-    console.log('📦 Transaction result:', result);
-    if (result.transactionHash) {
-      console.log('🔗 View on PolygonScan:', `https://amoy.polygonscan.com/tx/${result.transactionHash}`);
+    console.log('📦 Transaction Hash:', receipt.transactionHash);
+    console.log('⛽ Gas Used:', receipt.gasUsed?.toString());
+    console.log('📊 Block Number:', receipt.blockNumber);
+    
+    if (receipt.transactionHash) {
+      console.log('🔗 View on PolygonScan:', `https://amoy.polygonscan.com/tx/${receipt.transactionHash}`);
     }
+    
     console.log('🏆 NFT minted to:', process.env.TEST_WALLET_ADDRESS);
+    console.log('📄 Using contract:', process.env.NFT_CONTRACT_ADDRESS);
+    console.log('🆔 Check your NFTs in the thirdweb dashboard');
     
     console.log('\n✅ Complete NFT infrastructure test PASSED!');
     console.log('🚀 Ready for integration with rehabilitation app!');

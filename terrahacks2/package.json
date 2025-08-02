@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:nft": "node scripts/test-mint.js"
+    "test:nft": "node scripts/test-mint.js",
+    "debug:contract": "node scripts/debug-contract.js",
+    "test:simple": "node scripts/simple-mint-test.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
