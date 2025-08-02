@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PatientSidebar from './PatientSidebar';
 import VideoAnalyzer from './VideoAnalyzer';
-import { supabaseAdmin } from '../lib/supabase-admin';
+import { supabase } from '../lib/supabase';
 
 interface PatientLayoutProps {
   initialPage?: string;
@@ -26,7 +26,7 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
       
       // For demo purposes, we'll get routines for all patients
       // In production, you'd filter by the logged-in patient's ID
-      const { data: routines, error } = await supabaseAdmin
+      const { data: routines, error } = await supabase
         .from('routines')
         .select(`
           *,
@@ -47,11 +47,11 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
 
   const fetchRoutineExercises = async (routineId: string) => {
     try {
-      const { data: exercises, error } = await supabaseAdmin
+      const { data: exercises, error } = await supabase
         .from('routine_exercises')
         .select(`
           *,
-          exercise_templates(name, description, instructions, category, difficulty_level)
+          exercises(name, description, instructions, category, difficulty_level)
         `)
         .eq('routine_id', routineId)
         .order('order_in_routine');

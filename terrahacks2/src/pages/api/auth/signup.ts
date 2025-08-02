@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import { supabaseAdmin } from '../../../lib/supabase-admin'
+import { supabase } from '../../../lib/supabase'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -18,14 +18,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Create user in Supabase Auth
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      email_confirm: true, // Auto-confirm email for demo purposes
-      user_metadata: {
-        first_name: firstName,
-        last_name: lastName,
-        user_type: userType
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          user_type: userType
+        }
       }
     })
 
@@ -40,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Create profile in appropriate table
     if (userType === 'doctor') {
-      const { error: doctorError } = await supabaseAdmin
+      const { error: doctorError } = await supabase
         .from('doctors')
         .insert({
           user_id: authData.user.id,
@@ -56,12 +57,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (doctorError) {
         console.error('Doctor profile error:', doctorError)
-        // Cleanup: delete the auth user if profile creation fails
-        await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
         return res.status(400).json({ error: 'Failed to create doctor profile' })
       }
     } else {
-      const { error: patientError } = await supabaseAdmin
+      const { error: patientError } = await supabase
         .from('patients')
         .insert({
           user_id: authData.user.id,
@@ -79,8 +78,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (patientError) {
         console.error('Patient profile error:', patientError)
-        // Cleanup: delete the auth user if profile creation fails
-        await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
         return res.status(400).json({ error: 'Failed to create patient profile' })
       }
     }
