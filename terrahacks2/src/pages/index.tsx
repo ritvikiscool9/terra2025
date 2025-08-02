@@ -10,7 +10,11 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+      <div style={{ 
+        minHeight: '100vh', 
+        backgroundColor: '#ffffff',
+        color: '#000000'
+      }}>
         <VideoAnalyzer />
       </div>
     </>

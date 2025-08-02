@@ -80,8 +80,8 @@ export default async function handler(
     // Initialize Gemini AI
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Use gemini-1.5-pro for video understanding
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    // Use gemini-1.5-flash for video understanding (lighter model with higher quotas)
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     // Create the prompt with video and text parts
     const prompt = [
@@ -112,8 +112,32 @@ Please be specific about what you observe and provide constructive feedback.`
 
     console.log('Sending request to Gemini API...');
 
-    // Generate content
-    const result = await model.generateContent(prompt);
+    // Generate content with retry logic
+    let result;
+    let retryCount = 0;
+    const maxRetries = 2;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        result = await model.generateContent(prompt);
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        if (error.status === 429 && retryCount < maxRetries) {
+          // Rate limit hit, wait and retry
+          const waitTime = Math.pow(2, retryCount) * 1000; // Exponential backoff
+          console.log(`Rate limit hit, waiting ${waitTime}ms before retry ${retryCount + 1}/${maxRetries}`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          retryCount++;
+        } else {
+          throw error; // Re-throw if not a rate limit or max retries reached
+        }
+      }
+    }
+    
+    if (!result) {
+      throw new Error('Failed to generate content after retries');
+    }
+    
     const response = await result.response;
     const analysis = response.text();
 
@@ -133,11 +157,13 @@ Please be specific about what you observe and provide constructive feedback.`
       if (error.message.includes('API_KEY')) {
         return res.status(401).json({ error: 'Invalid API key' });
       }
-      if (error.message.includes('quota')) {
-        return res.status(429).json({ error: 'API quota exceeded' });
+      if (error.message.includes('quota') || error.message.includes('429')) {
+        return res.status(429).json({ 
+          error: 'API quota exceeded. Please wait a minute and try again, or try with a shorter video.' 
+        });
       }
       if (error.message.includes('video')) {
-        return res.status(400).json({ error: 'Video processing failed. Please ensure the video is a valid MP4 file.' });
+        return res.status(400).json({ error: 'Video processing failed. Please ensure the video is a valid video file.' });
       }
     }
 

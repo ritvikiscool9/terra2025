@@ -96,8 +96,14 @@ export default function VideoAnalyzer() {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-      <h1>Squat Exercise Video Analyzer</h1>
+    <div style={{ 
+      maxWidth: '800px', 
+      margin: '0 auto', 
+      padding: '20px',
+      color: '#000000',
+      backgroundColor: '#ffffff'
+    }}>
+      <h1 style={{ color: '#000000' }}>Squat Exercise Video Analyzer</h1>
       
       {/* File Upload Area */}
       <div
@@ -110,7 +116,8 @@ export default function VideoAnalyzer() {
           textAlign: 'center',
           marginBottom: '20px',
           cursor: 'pointer',
-          backgroundColor: '#f9f9f9'
+          backgroundColor: '#f9f9f9',
+          color: '#000000'
         }}
         onClick={() => fileInputRef.current?.click()}
       >
@@ -131,7 +138,7 @@ export default function VideoAnalyzer() {
       {/* Video Preview */}
       {videoPreview && (
         <div style={{ marginBottom: '20px' }}>
-          <h3>Video Preview:</h3>
+          <h3 style={{ color: '#000000' }}>Video Preview:</h3>
           <video
             src={videoPreview}
             controls
@@ -167,7 +174,7 @@ export default function VideoAnalyzer() {
 
       {/* Loading Indicator */}
       {isLoading && (
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px', color: '#000000' }}>
           <div style={{
             border: '4px solid #f3f3f3',
             borderTop: '4px solid #0070f3',
@@ -177,7 +184,7 @@ export default function VideoAnalyzer() {
             animation: 'spin 1s linear infinite',
             margin: '0 auto'
           }} />
-          <p>Analyzing your squat video...</p>
+          <p style={{ color: '#000000' }}>Analyzing your squat video...</p>
         </div>
       )}
 
@@ -198,7 +205,7 @@ export default function VideoAnalyzer() {
       {/* Analysis Results */}
       {analysis && (
         <div style={{ marginBottom: '20px' }}>
-          <h3>Analysis Results:</h3>
+          <h3 style={{ color: '#000000' }}>Analysis Results:</h3>
           <div style={{
             backgroundColor: '#f8f8f8',
             border: '1px solid #ddd',
@@ -208,7 +215,8 @@ export default function VideoAnalyzer() {
             overflowY: 'auto',
             whiteSpace: 'pre-wrap',
             fontSize: '14px',
-            lineHeight: '1.5'
+            lineHeight: '1.5',
+            color: '#000000'
           }}>
             {analysis}
           </div>
