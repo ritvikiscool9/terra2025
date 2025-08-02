@@ -92,406 +92,413 @@ export default function DoctorDashboard() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return '#48bb78';
-      case 'needs_improvement': return '#ed8936';
-      case 'failed': return '#f56565';
-      default: return '#718096';
+      case 'completed': return '#22c55e';
+      case 'needs_improvement': return '#f59e0b';
+      case 'failed': return '#ef4444';
+      default: return '#6b7280';
     }
   };
 
   return (
-    <div style={{ 
+    <div style={{
+      padding: '40px',
+      backgroundColor: '#f8fafc',
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '20px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
+      {/* Header */}
       <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderRadius: '20px',
-        padding: '40px',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)',
-        backdropFilter: 'blur(10px)'
+        backgroundColor: 'white',
+        padding: '30px',
+        borderRadius: '12px',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+        marginBottom: '30px',
+        border: '1px solid #e2e8f0'
       }}>
-        
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <div style={{
-            width: '80px',
-            height: '80px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            borderRadius: '50%',
-            margin: '0 auto 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '30px'
-          }}>
-            👨‍⚕️
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+          <span style={{ fontSize: '32px', marginRight: '12px' }}>👨‍⚕️</span>
           <h1 style={{ 
-            color: '#2d3748',
-            fontSize: '2.5rem',
+            color: '#1e40af', 
+            fontSize: '28px',
             fontWeight: '700',
-            margin: '0 0 10px 0',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
+            margin: '0'
           }}>
             Doctor Dashboard
           </h1>
-          <p style={{ 
-            color: '#718096', 
-            fontSize: '18px',
-            margin: '0',
-            lineHeight: '1.6'
-          }}>
-            Monitor your patients' progress and exercise completions
-          </p>
         </div>
+        <p style={{ 
+          color: '#6b7280', 
+          fontSize: '16px', 
+          margin: '0',
+          lineHeight: '1.5'
+        }}>
+          Monitor your patients' progress and exercise completions.
+        </p>
+      </div>
 
-        {/* Loading State */}
-        {isLoading && (
-          <div style={{ 
-            textAlign: 'center', 
-            marginBottom: '40px',
-            backgroundColor: 'rgba(102, 126, 234, 0.05)',
-            borderRadius: '16px',
-            padding: '40px 20px',
-            border: '1px solid rgba(102, 126, 234, 0.1)'
-          }}>
-            <div style={{
-              width: '60px',
-              height: '60px',
-              border: '4px solid rgba(102, 126, 234, 0.2)',
-              borderTop: '4px solid #667eea',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-              margin: '0 auto 20px'
-            }} />
-            <h4 style={{ 
-              color: '#667eea',
-              fontSize: '18px',
-              fontWeight: '600',
-              margin: '0'
-            }}>
-              Loading patients...
-            </h4>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
+      {/* Loading State */}
+      {isLoading && (
+        <div style={{
+          backgroundColor: 'white',
+          padding: '40px',
+          borderRadius: '12px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e2e8f0',
+          textAlign: 'center'
+        }}>
           <div style={{
-            backgroundColor: '#fed7d7',
-            color: '#c53030',
-            padding: '20px',
-            borderRadius: '12px',
-            marginBottom: '30px',
-            border: '1px solid #feb2b2',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px'
+            width: '40px',
+            height: '40px',
+            border: '4px solid #e2e8f0',
+            borderTop: '4px solid #1e40af',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 20px'
+          }} />
+          <h4 style={{ 
+            color: '#1e40af',
+            fontSize: '18px',
+            fontWeight: '600',
+            margin: '0'
           }}>
-            <div style={{ fontSize: '24px' }}>⚠️</div>
+            Loading patients...
+          </h4>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div style={{
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fca5a5',
+          borderRadius: '8px',
+          padding: '16px',
+          marginBottom: '20px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'start' }}>
+            <span style={{ fontSize: '20px', marginRight: '8px' }}>⚠️</span>
             <div>
-              <strong style={{ display: 'block', marginBottom: '4px' }}>Error</strong>
-              <span>{error}</span>
+              <p style={{ 
+                color: '#b91c1c', 
+                fontSize: '14px', 
+                margin: '0',
+                fontWeight: '500'
+              }}>
+                <strong>Error:</strong> {error}
+              </p>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Main Content */}
-        {!isLoading && !error && (
-          <div style={{ display: 'flex', gap: '30px', minHeight: '600px' }}>
-            
-            {/* Patients List */}
-            <div style={{ 
-              flex: selectedPatient ? '1' : '1',
-              backgroundColor: '#ffffff',
-              borderRadius: '16px',
-              padding: '24px',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-              border: '1px solid #e2e8f0'
+      {/* Main Content */}
+      {!isLoading && !error && (
+        <div style={{ display: 'flex', gap: '30px' }}>
+          
+          {/* Patients List */}
+          <div style={{ 
+            flex: selectedPatient ? '1' : '1',
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '12px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            border: '1px solid #e2e8f0',
+            height: 'fit-content'
+          }}>
+            <h2 style={{
+              color: '#374151',
+              fontSize: '20px',
+              fontWeight: '600',
+              marginBottom: '20px',
+              borderBottom: '2px solid #e2e8f0',
+              paddingBottom: '12px'
             }}>
-              <h3 style={{ 
-                color: '#2d3748',
+              My Patients ({patients.length})
+            </h2>
+            
+            <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+              {patients.map((patient) => (
+                <div
+                  key={patient.id}
+                  onClick={() => fetchPatientDetails(patient)}
+                  style={{
+                    border: selectedPatient?.id === patient.id ? '2px solid #1e40af' : '2px solid #dbeafe',
+                    borderRadius: '8px',
+                    padding: '20px',
+                    marginBottom: '16px',
+                    backgroundColor: selectedPatient?.id === patient.id ? '#dbeafe' : '#f0f9ff',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selectedPatient?.id !== patient.id) {
+                      e.currentTarget.style.backgroundColor = '#dbeafe';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedPatient?.id !== patient.id) {
+                      e.currentTarget.style.backgroundColor = '#f0f9ff';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
+                    <h3 style={{
+                      color: '#1e40af',
+                      fontSize: '18px',
+                      fontWeight: '600',
+                      margin: '0'
+                    }}>
+                      {patient.first_name} {patient.last_name}
+                    </h3>
+                    <span style={{
+                      backgroundColor: '#22c55e',
+                      color: 'white',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: '500'
+                    }}>
+                      🏆 {patient.nftCount} NFTs
+                    </span>
+                  </div>
+                  
+                  <div style={{ marginBottom: '12px' }}>
+                    <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
+                      <strong>Email:</strong> {patient.email}
+                    </p>
+                    <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
+                      <strong>Progress:</strong> {patient.completedExercises}/{patient.totalExercises} exercises
+                    </p>
+                    {patient.lastActivity && (
+                      <p style={{ color: '#6b7280', margin: '0', fontSize: '14px' }}>
+                        <strong>Last Active:</strong> {formatDate(patient.lastActivity)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+              
+              {patients.length === 0 && (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '40px',
+                  border: '2px dashed #d1d5db',
+                  borderRadius: '8px',
+                  backgroundColor: '#f9fafb'
+                }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
+                  <h3 style={{ color: '#6b7280', marginBottom: '8px' }}>No Patients Assigned</h3>
+                  <p style={{ color: '#9ca3af', fontSize: '14px', margin: '0' }}>
+                    You don't have any patients assigned yet. Check back later or contact your administrator.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Patient Details */}
+          {selectedPatient && (
+            <div style={{ 
+              flex: '2',
+              backgroundColor: 'white',
+              padding: '30px',
+              borderRadius: '12px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #e2e8f0',
+              height: 'fit-content'
+            }}>
+              <h2 style={{
+                color: '#374151',
                 fontSize: '20px',
                 fontWeight: '600',
-                margin: '0 0 20px 0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
+                marginBottom: '20px',
+                borderBottom: '2px solid #e2e8f0',
+                paddingBottom: '12px'
               }}>
-                👥 My Patients ({patients.length})
-              </h3>
-              
-              <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                {patients.map((patient) => (
-                  <div
-                    key={patient.id}
-                    onClick={() => fetchPatientDetails(patient)}
-                    style={{
-                      padding: '16px',
-                      borderRadius: '12px',
-                      border: selectedPatient?.id === patient.id ? '2px solid #667eea' : '2px solid transparent',
-                      backgroundColor: selectedPatient?.id === patient.id ? 'rgba(102, 126, 234, 0.05)' : '#f7fafc',
-                      marginBottom: '12px',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (selectedPatient?.id !== patient.id) {
-                        e.currentTarget.style.backgroundColor = 'rgba(102, 126, 234, 0.05)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (selectedPatient?.id !== patient.id) {
-                        e.currentTarget.style.backgroundColor = '#f7fafc';
-                      }
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <h4 style={{ 
-                        color: '#2d3748', 
-                        fontSize: '16px', 
-                        fontWeight: '600',
-                        margin: '0'
-                      }}>
-                        {patient.first_name} {patient.last_name}
-                      </h4>
-                      <div style={{ 
-                        backgroundColor: '#48bb78',
-                        color: 'white',
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: '600'
-                      }}>
-                        🏆 {patient.nftCount} NFTs
-                      </div>
-                    </div>
-                    
-                    <p style={{ 
-                      color: '#718096', 
-                      fontSize: '14px',
-                      margin: '0 0 8px 0'
-                    }}>
-                      📧 {patient.email}
+                Patient Details
+              </h2>
+
+              {/* Patient Info Card */}
+              <div style={{
+                border: '2px solid #dbeafe',
+                borderRadius: '8px',
+                padding: '20px',
+                marginBottom: '20px',
+                backgroundColor: '#f0f9ff'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
+                  <h3 style={{
+                    color: '#1e40af',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    margin: '0'
+                  }}>
+                    {selectedPatient.first_name} {selectedPatient.last_name}
+                  </h3>
+                  <span style={{
+                    backgroundColor: '#22c55e',
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '500'
+                  }}>
+                    PATIENT
+                  </span>
+                </div>
+                
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
+                    <strong>Email:</strong> {selectedPatient.email}
+                  </p>
+                  {selectedPatient.phone && (
+                    <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
+                      <strong>Phone:</strong> {selectedPatient.phone}
                     </p>
-                    
-                    <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#718096' }}>
-                      <span>📊 {patient.completedExercises}/{patient.totalExercises} exercises</span>
-                      {patient.lastActivity && (
-                        <span>🕒 Last active: {formatDate(patient.lastActivity)}</span>
+                  )}
+                  {selectedPatient.date_of_birth && (
+                    <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
+                      <strong>Date of Birth:</strong> {formatDate(selectedPatient.date_of_birth)}
+                    </p>
+                  )}
+                  {selectedPatient.wallet_address && (
+                    <p style={{ color: '#6b7280', margin: '0', fontSize: '14px' }}>
+                      <strong>Wallet:</strong> {selectedPatient.wallet_address.slice(0, 6)}...{selectedPatient.wallet_address.slice(-4)}
+                    </p>
+                  )}
+                </div>
+                
+                <p style={{ 
+                  color: '#374151', 
+                  fontSize: '14px', 
+                  margin: '0 0 16px 0',
+                  lineHeight: '1.4'
+                }}>
+                  Total Exercise Completions: {selectedPatient.totalExercises} | NFTs Earned: {selectedPatient.nftCount}
+                </p>
+              </div>
+
+              {/* Exercise Completions */}
+              <div>
+                <h3 style={{
+                  color: '#374151',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  marginBottom: '16px'
+                }}>
+                  Recent Exercise Completions ({patientCompletions.length})
+                </h3>
+                
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  {patientCompletions.map((completion) => (
+                    <div
+                      key={completion.id}
+                      style={{
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        marginBottom: '12px',
+                        backgroundColor: '#f9fafb'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: getStatusColor(completion.completion_status)
+                          }} />
+                          <span style={{ 
+                            color: '#374151', 
+                            fontWeight: '600',
+                            textTransform: 'capitalize',
+                            fontSize: '14px'
+                          }}>
+                            {completion.completion_status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {completion.form_score && (
+                            <span style={{ 
+                              backgroundColor: completion.form_score >= 70 ? '#22c55e' : '#f59e0b',
+                              color: 'white',
+                              padding: '4px 8px',
+                              borderRadius: '12px',
+                              fontSize: '12px',
+                              fontWeight: '500'
+                            }}>
+                              Score: {completion.form_score}%
+                            </span>
+                          )}
+                          {completion.nft_minted && (
+                            <span style={{ fontSize: '16px' }}>🏆</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <p style={{ color: '#6b7280', fontSize: '14px', margin: '0' }}>
+                        <strong>Completed:</strong> {formatDate(completion.completion_date)}
+                      </p>
+                      
+                      {completion.doctor_feedback && (
+                        <div style={{ 
+                          marginTop: '8px',
+                          padding: '8px',
+                          backgroundColor: '#dbeafe',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          color: '#374151'
+                        }}>
+                          <strong>Your feedback:</strong> {completion.doctor_feedback}
+                        </div>
                       )}
                     </div>
-                  </div>
-                ))}
-                
-                {patients.length === 0 && (
-                  <div style={{
-                    textAlign: 'center',
-                    padding: '40px',
-                    color: '#718096'
-                  }}>
-                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
-                    <p>No patients assigned yet</p>
-                  </div>
-                )}
+                  ))}
+                  
+                  {patientCompletions.length === 0 && (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '40px',
+                      border: '2px dashed #d1d5db',
+                      borderRadius: '8px',
+                      backgroundColor: '#f9fafb'
+                    }}>
+                      <div style={{ fontSize: '48px', marginBottom: '16px' }}>📊</div>
+                      <h3 style={{ color: '#6b7280', marginBottom: '8px' }}>No Exercise Completions</h3>
+                      <p style={{ color: '#9ca3af', fontSize: '14px', margin: '0' }}>
+                        This patient hasn't completed any exercises yet.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+          )}
+        </div>
+      )}
 
-            {/* Patient Details */}
-            {selectedPatient && (
-              <div style={{ 
-                flex: '2',
-                backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                padding: '24px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-                border: '1px solid #e2e8f0'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-                  <div style={{
-                    width: '60px',
-                    height: '60px',
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '24px',
-                    fontWeight: '600'
-                  }}>
-                    {selectedPatient.first_name[0]}{selectedPatient.last_name[0]}
-                  </div>
-                  <div>
-                    <h3 style={{ 
-                      color: '#2d3748',
-                      fontSize: '24px',
-                      fontWeight: '600',
-                      margin: '0 0 4px 0'
-                    }}>
-                      {selectedPatient.first_name} {selectedPatient.last_name}
-                    </h3>
-                    <p style={{ color: '#718096', margin: '0' }}>
-                      Patient ID: {selectedPatient.id.slice(0, 8)}...
-                    </p>
-                  </div>
-                </div>
-
-                {/* Patient Info */}
-                <div style={{ 
-                  backgroundColor: '#f7fafc',
-                  borderRadius: '12px',
-                  padding: '20px',
-                  marginBottom: '24px'
-                }}>
-                  <h4 style={{ color: '#2d3748', fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>
-                    📋 Patient Information
-                  </h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                    <div>
-                      <span style={{ color: '#718096', fontSize: '14px' }}>Email:</span>
-                      <p style={{ color: '#2d3748', margin: '4px 0 0 0', fontWeight: '500' }}>{selectedPatient.email}</p>
-                    </div>
-                    {selectedPatient.phone && (
-                      <div>
-                        <span style={{ color: '#718096', fontSize: '14px' }}>Phone:</span>
-                        <p style={{ color: '#2d3748', margin: '4px 0 0 0', fontWeight: '500' }}>{selectedPatient.phone}</p>
-                      </div>
-                    )}
-                    {selectedPatient.date_of_birth && (
-                      <div>
-                        <span style={{ color: '#718096', fontSize: '14px' }}>Date of Birth:</span>
-                        <p style={{ color: '#2d3748', margin: '4px 0 0 0', fontWeight: '500' }}>{formatDate(selectedPatient.date_of_birth)}</p>
-                      </div>
-                    )}
-                    {selectedPatient.wallet_address && (
-                      <div>
-                        <span style={{ color: '#718096', fontSize: '14px' }}>Wallet Address:</span>
-                        <p style={{ color: '#2d3748', margin: '4px 0 0 0', fontWeight: '500', fontSize: '12px' }}>
-                          {selectedPatient.wallet_address.slice(0, 6)}...{selectedPatient.wallet_address.slice(-4)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Exercise Completions */}
-                <div>
-                  <h4 style={{ 
-                    color: '#2d3748', 
-                    fontSize: '16px', 
-                    fontWeight: '600', 
-                    marginBottom: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    🏋️ Recent Exercise Completions ({patientCompletions.length})
-                  </h4>
-                  
-                  <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                    {patientCompletions.map((completion) => (
-                      <div
-                        key={completion.id}
-                        style={{
-                          padding: '16px',
-                          borderRadius: '8px',
-                          backgroundColor: '#f7fafc',
-                          marginBottom: '12px',
-                          border: '1px solid #e2e8f0'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{
-                              width: '8px',
-                              height: '8px',
-                              borderRadius: '50%',
-                              backgroundColor: getStatusColor(completion.completion_status)
-                            }} />
-                            <span style={{ 
-                              color: '#2d3748', 
-                              fontWeight: '600',
-                              textTransform: 'capitalize'
-                            }}>
-                              {completion.completion_status.replace('_', ' ')}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            {completion.form_score && (
-                              <span style={{ 
-                                backgroundColor: completion.form_score >= 70 ? '#48bb78' : '#ed8936',
-                                color: 'white',
-                                padding: '4px 8px',
-                                borderRadius: '12px',
-                                fontSize: '12px',
-                                fontWeight: '600'
-                              }}>
-                                Score: {completion.form_score}%
-                              </span>
-                            )}
-                            {completion.nft_minted && (
-                              <span style={{ fontSize: '16px' }}>🏆</span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <p style={{ color: '#718096', fontSize: '14px', margin: '0' }}>
-                          🕒 {formatDate(completion.completion_date)}
-                        </p>
-                        
-                        {completion.doctor_feedback && (
-                          <div style={{ 
-                            marginTop: '8px',
-                            padding: '8px',
-                            backgroundColor: 'rgba(102, 126, 234, 0.05)',
-                            borderRadius: '6px',
-                            fontSize: '14px',
-                            color: '#2d3748'
-                          }}>
-                            💬 <strong>Your feedback:</strong> {completion.doctor_feedback}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    
-                    {patientCompletions.length === 0 && (
-                      <div style={{
-                        textAlign: 'center',
-                        padding: '40px',
-                        color: '#718096'
-                      }}>
-                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>📊</div>
-                        <p>No exercise completions yet</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+      {/* Medical Disclaimer */}
+      <div style={{
+        backgroundColor: '#fef3c7',
+        border: '1px solid #f59e0b',
+        borderRadius: '8px',
+        padding: '16px',
+        marginTop: '30px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'start' }}>
+          <span style={{ fontSize: '20px', marginRight: '8px' }}>⚠️</span>
+          <div>
+            <p style={{ 
+              color: '#92400e', 
+              fontSize: '14px', 
+              margin: '0',
+              fontWeight: '500'
+            }}>
+              <strong>Medical Supervision:</strong> Monitor patient progress closely and provide appropriate feedback. 
+              Ensure patients follow proper form and safety guidelines during rehabilitation exercises.
+            </p>
           </div>
-        )}
-
-        {/* Footer */}
-        <div style={{
-          textAlign: 'center',
-          padding: '20px 0',
-          color: '#718096',
-          fontSize: '14px',
-          borderTop: '1px solid #e2e8f0',
-          marginTop: '40px'
-        }}>
-          <p style={{ margin: '0' }}>
-            Rehabilitation Management System • Built with Next.js & Supabase
-          </p>
         </div>
       </div>
 
