@@ -40,6 +40,10 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
   const [editedEmail, setEditedEmail] = useState('');
   const [editedPhone, setEditedPhone] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isEditingMedical, setIsEditingMedical] = useState(false);
+  const [editedMedicalCondition, setEditedMedicalCondition] = useState('');
+  const [editedMedications, setEditedMedications] = useState<string[]>([]);
+  const [isSavingMedical, setIsSavingMedical] = useState(false);
 
   useEffect(() => {
     if (currentPage === 'routines') {
@@ -236,6 +240,78 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
     setIsEditingProfile(false);
     setEditedEmail('');
     setEditedPhone('');
+  };
+
+  const handleEditMedical = () => {
+    if (patientData) {
+      // Set the first medical condition or empty string
+      setEditedMedicalCondition(
+        patientData.medical_conditions && patientData.medical_conditions.length > 0 
+          ? patientData.medical_conditions[0] 
+          : ''
+      );
+      // Set current medications or empty array
+      setEditedMedications(patientData.current_medications || []);
+      setIsEditingMedical(true);
+    }
+  };
+
+  const handleSaveMedical = async () => {
+    if (!patientData) return;
+
+    try {
+      setIsSavingMedical(true);
+      
+      // Prepare the data - only include condition if it's not empty
+      const medicalConditions = editedMedicalCondition.trim() ? [editedMedicalCondition.trim()] : [];
+      const medications = editedMedications.filter(med => med.trim() !== '').map(med => med.trim());
+
+      const { error } = await supabase
+        .from('patients')
+        .update({
+          medical_conditions: medicalConditions,
+          current_medications: medications
+        })
+        .eq('id', patientData.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setPatientData({
+        ...patientData,
+        medical_conditions: medicalConditions,
+        current_medications: medications
+      });
+
+      setIsEditingMedical(false);
+      alert('Medical information updated successfully!');
+    } catch (err) {
+      console.error('Error updating medical info:', err);
+      alert('Failed to update medical information. Please try again.');
+    } finally {
+      setIsSavingMedical(false);
+    }
+  };
+
+  const handleCancelMedicalEdit = () => {
+    setIsEditingMedical(false);
+    setEditedMedicalCondition('');
+    setEditedMedications([]);
+  };
+
+  const addMedication = () => {
+    setEditedMedications([...editedMedications, '']);
+  };
+
+  const updateMedication = (index: number, value: string) => {
+    const updated = [...editedMedications];
+    updated[index] = value;
+    setEditedMedications(updated);
+  };
+
+  const removeMedication = (index: number) => {
+    const updated = editedMedications.filter((_, i) => i !== index);
+    setEditedMedications(updated);
   };
 
   const renderContent = () => {
@@ -1026,12 +1102,32 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                         display: 'block',
                         marginBottom: '8px'
                       }}>
-                        Medical Conditions
+                        Primary Medical Condition
                       </label>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {patientData.medical_conditions && patientData.medical_conditions.length > 0 ? (
-                          patientData.medical_conditions.map((condition, index) => (
-                            <span key={index} style={{
+                      {isEditingMedical ? (
+                        <input
+                          type="text"
+                          value={editedMedicalCondition}
+                          onChange={(e) => setEditedMedicalCondition(e.target.value)}
+                          placeholder="Enter primary medical condition (optional)"
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '2px solid #dbeafe',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            color: '#374151',
+                            backgroundColor: 'white',
+                            outline: 'none',
+                            transition: 'border-color 0.2s',
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#1e40af'}
+                          onBlur={(e) => e.target.style.borderColor = '#dbeafe'}
+                        />
+                      ) : (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {patientData.medical_conditions && patientData.medical_conditions.length > 0 ? (
+                            <span style={{
                               backgroundColor: '#fef2f2',
                               color: '#dc2626',
                               padding: '4px 12px',
@@ -1040,22 +1136,22 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                               fontWeight: '500',
                               border: '1px solid #fecaca'
                             }}>
-                              {condition}
+                              {patientData.medical_conditions[0]}
                             </span>
-                          ))
-                        ) : (
-                          <span style={{
-                            backgroundColor: '#f3f4f6',
-                            color: '#6b7280',
-                            padding: '4px 12px',
-                            borderRadius: '20px',
-                            fontSize: '12px',
-                            fontWeight: '500'
-                          }}>
-                            No conditions recorded
-                          </span>
-                        )}
-                      </div>
+                          ) : (
+                            <span style={{
+                              backgroundColor: '#f3f4f6',
+                              color: '#6b7280',
+                              padding: '4px 12px',
+                              borderRadius: '20px',
+                              fontSize: '12px',
+                              fontWeight: '500'
+                            }}>
+                              No condition recorded
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ marginBottom: '20px' }}>
@@ -1068,49 +1164,168 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                       }}>
                         Current Medications
                       </label>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {patientData.current_medications && patientData.current_medications.length > 0 ? (
-                          patientData.current_medications.map((medication, index) => (
-                            <span key={index} style={{
-                              backgroundColor: '#f0fdf4',
+                      {isEditingMedical ? (
+                        <div>
+                          {editedMedications.map((medication, index) => (
+                            <div key={index} style={{ 
+                              display: 'flex', 
+                              gap: '8px', 
+                              marginBottom: '8px',
+                              alignItems: 'center'
+                            }}>
+                              <input
+                                type="text"
+                                value={medication}
+                                onChange={(e) => updateMedication(index, e.target.value)}
+                                placeholder="Enter medication name and dosage"
+                                style={{
+                                  flex: 1,
+                                  padding: '8px 12px',
+                                  border: '2px solid #dbeafe',
+                                  borderRadius: '6px',
+                                  fontSize: '14px',
+                                  color: '#374151',
+                                  backgroundColor: 'white',
+                                  outline: 'none',
+                                  transition: 'border-color 0.2s',
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = '#1e40af'}
+                                onBlur={(e) => e.target.style.borderColor = '#dbeafe'}
+                              />
+                              <button
+                                onClick={() => removeMedication(index)}
+                                style={{
+                                  backgroundColor: '#dc2626',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '8px 10px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  minWidth: '24px'
+                                }}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={addMedication}
+                            style={{
+                              backgroundColor: 'transparent',
                               color: '#16a34a',
+                              border: '2px dashed #16a34a',
+                              padding: '8px 16px',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              cursor: 'pointer',
+                              width: '100%',
+                              marginTop: '8px'
+                            }}
+                          >
+                            + Add Medication
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {patientData.current_medications && patientData.current_medications.length > 0 ? (
+                            patientData.current_medications.map((medication, index) => (
+                              <span key={index} style={{
+                                backgroundColor: '#f0fdf4',
+                                color: '#16a34a',
+                                padding: '4px 12px',
+                                borderRadius: '20px',
+                                fontSize: '12px',
+                                fontWeight: '500',
+                                border: '1px solid #bbf7d0'
+                              }}>
+                                {medication}
+                              </span>
+                            ))
+                          ) : (
+                            <span style={{
+                              backgroundColor: '#f3f4f6',
+                              color: '#6b7280',
                               padding: '4px 12px',
                               borderRadius: '20px',
                               fontSize: '12px',
-                              fontWeight: '500',
-                              border: '1px solid #bbf7d0'
+                              fontWeight: '500'
                             }}>
-                              {medication}
+                              No medications recorded
                             </span>
-                          ))
-                        ) : (
-                          <span style={{
-                            backgroundColor: '#f3f4f6',
-                            color: '#6b7280',
-                            padding: '4px 12px',
-                            borderRadius: '20px',
-                            fontSize: '12px',
-                            fontWeight: '500'
-                          }}>
-                            No medications recorded
-                          </span>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    <button style={{
-                      backgroundColor: 'transparent',
-                      color: '#1e40af',
-                      border: '2px solid #1e40af',
-                      padding: '10px 20px',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      marginTop: '8px'
-                    }}>
-                      Update Medical Info
-                    </button>
+                    {isEditingMedical ? (
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                        <button
+                          onClick={handleSaveMedical}
+                          disabled={isSavingMedical}
+                          style={{
+                            backgroundColor: '#059669',
+                            color: 'white',
+                            border: 'none',
+                            padding: '10px 20px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: isSavingMedical ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            opacity: isSavingMedical ? 0.7 : 1
+                          }}
+                        >
+                          {isSavingMedical && (
+                            <div className="spinner" style={{
+                              width: '14px',
+                              height: '14px',
+                              border: '2px solid transparent',
+                              borderTop: '2px solid white',
+                              borderRadius: '50%',
+                              animation: 'spin 1s linear infinite'
+                            }} />
+                          )}
+                          {isSavingMedical ? 'Saving...' : 'Save Changes'}
+                        </button>
+                        <button
+                          onClick={handleCancelMedicalEdit}
+                          disabled={isSavingMedical}
+                          style={{
+                            backgroundColor: 'transparent',
+                            color: '#6b7280',
+                            border: '2px solid #d1d5db',
+                            padding: '10px 20px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: isSavingMedical ? 'not-allowed' : 'pointer',
+                            opacity: isSavingMedical ? 0.5 : 1
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleEditMedical}
+                        style={{
+                          backgroundColor: 'transparent',
+                          color: '#1e40af',
+                          border: '2px solid #1e40af',
+                          padding: '10px 20px',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          cursor: 'pointer',
+                          marginTop: '8px'
+                        }}
+                      >
+                        Update Medical Info
+                      </button>
+                    )}
                   </div>
                 </div>
 
