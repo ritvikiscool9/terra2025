@@ -8,7 +8,7 @@
 -- DOCTORS TABLE
 -- =====================================================
 CREATE TABLE doctors (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    id VARCHAR(10) PRIMARY KEY, -- Changed to allow simple IDs like "001"
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     email VARCHAR(255) UNIQUE NOT NULL,
     first_name VARCHAR(100) NOT NULL,
@@ -40,7 +40,7 @@ CREATE TABLE patients (
     current_medications TEXT[],
     wallet_address VARCHAR(42), -- Ethereum wallet address for NFTs
     profile_image_url TEXT,
-    assigned_doctor_id UUID REFERENCES doctors(id) ON DELETE SET NULL,
+    assigned_doctor_id VARCHAR(10) REFERENCES doctors(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -58,7 +58,7 @@ CREATE TABLE exercise_templates (
     instructions TEXT NOT NULL,
     precautions TEXT,
     demo_video_url TEXT,
-    created_by_doctor_id UUID REFERENCES doctors(id) ON DELETE SET NULL,
+    created_by_doctor_id VARCHAR(10) REFERENCES doctors(id) ON DELETE SET NULL,
     is_public BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -70,7 +70,7 @@ CREATE TABLE exercise_templates (
 CREATE TABLE routines (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
-    prescribed_by_doctor_id UUID REFERENCES doctors(id) ON DELETE CASCADE,
+    prescribed_by_doctor_id VARCHAR(10) REFERENCES doctors(id) ON DELETE CASCADE,
     title VARCHAR(200) NOT NULL,
     description TEXT,
     start_date DATE NOT NULL,
