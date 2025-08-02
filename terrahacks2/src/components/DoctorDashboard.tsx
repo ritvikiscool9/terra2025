@@ -164,10 +164,10 @@ export default function DoctorDashboard() {
     const routineExercise = {
       exercise_template_id: exercise.id,
       exercise_name: exercise.name,
-      sets: 3,
-      reps: 10,
-      duration_seconds: null,
-      rest_seconds: 60,
+      sets: exercise.default_sets || 1,
+      reps: exercise.default_reps || null,
+      duration_seconds: exercise.default_duration_seconds || null,
+      rest_seconds: exercise.rest_seconds || 60,
       order_in_routine: newRoutine.exercises.length + 1,
       special_instructions: ''
     };
@@ -1087,80 +1087,95 @@ export default function DoctorDashboard() {
                           gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
                           gap: '12px'
                         }}>
-                          <div>
-                            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
-                              Sets
-                            </label>
-                            <input
-                              type="number"
-                              value={exercise.sets}
-                              onChange={(e) => updateRoutineExercise(index, 'sets', parseInt(e.target.value) || 1)}
-                              min="1"
-                              style={{
-                                width: '100%',
-                                padding: '8px',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '4px',
-                                fontSize: '14px'
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
-                              Reps
-                            </label>
-                            <input
-                              type="number"
-                              value={exercise.reps || ''}
-                              onChange={(e) => updateRoutineExercise(index, 'reps', parseInt(e.target.value) || null)}
-                              min="1"
-                              placeholder="10"
-                              style={{
-                                width: '100%',
-                                padding: '8px',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '4px',
-                                fontSize: '14px'
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
-                              Duration (sec)
-                            </label>
-                            <input
-                              type="number"
-                              value={exercise.duration_seconds || ''}
-                              onChange={(e) => updateRoutineExercise(index, 'duration_seconds', parseInt(e.target.value) || null)}
-                              min="1"
-                              placeholder="30"
-                              style={{
-                                width: '100%',
-                                padding: '8px',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '4px',
-                                fontSize: '14px'
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
-                              Rest (sec)
-                            </label>
-                            <input
-                              type="number"
-                              value={exercise.rest_seconds}
-                              onChange={(e) => updateRoutineExercise(index, 'rest_seconds', parseInt(e.target.value) || 60)}
-                              min="0"
-                              style={{
-                                width: '100%',
-                                padding: '8px',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '4px',
-                                fontSize: '14px'
-                              }}
-                            />
-                          </div>
+                          {/* Only show Sets if the exercise has more than 1 set OR if it has reps */}
+                          {(exercise.sets > 1 || exercise.reps !== null) && (
+                            <div>
+                              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                                Sets
+                              </label>
+                              <input
+                                type="number"
+                                value={exercise.sets}
+                                onChange={(e) => updateRoutineExercise(index, 'sets', parseInt(e.target.value) || 1)}
+                                min="1"
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '4px',
+                                  fontSize: '14px'
+                                }}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Only show Reps if the exercise has reps (not null) */}
+                          {exercise.reps !== null && (
+                            <div>
+                              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                                Reps
+                              </label>
+                              <input
+                                type="number"
+                                value={exercise.reps || ''}
+                                onChange={(e) => updateRoutineExercise(index, 'reps', parseInt(e.target.value) || null)}
+                                min="1"
+                                placeholder="10"
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '4px',
+                                  fontSize: '14px'
+                                }}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Only show Duration if the exercise has duration (not null) */}
+                          {exercise.duration_seconds !== null && (
+                            <div>
+                              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                                Duration (sec)
+                              </label>
+                              <input
+                                type="number"
+                                value={exercise.duration_seconds || ''}
+                                onChange={(e) => updateRoutineExercise(index, 'duration_seconds', parseInt(e.target.value) || null)}
+                                min="1"
+                                placeholder="30"
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '4px',
+                                  fontSize: '14px'
+                                }}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Only show Rest if the exercise has rest time > 0 */}
+                          {exercise.rest_seconds > 0 && (
+                            <div>
+                              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                                Rest (sec)
+                              </label>
+                              <input
+                                type="number"
+                                value={exercise.rest_seconds}
+                                onChange={(e) => updateRoutineExercise(index, 'rest_seconds', parseInt(e.target.value) || 0)}
+                                min="0"
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '4px',
+                                  fontSize: '14px'
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

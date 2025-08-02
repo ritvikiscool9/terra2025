@@ -637,26 +637,37 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                               backgroundColor: '#f3f4f6',
                               borderRadius: '6px'
                             }}>
-                              <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Sets</div>
-                                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e40af' }}>{exercise.sets}</div>
-                              </div>
+                              {/* Only show Sets if the exercise has more than 1 set OR if it has reps */}
+                              {(exercise.sets > 1 || exercise.reps !== null) && (
+                                <div style={{ textAlign: 'center' }}>
+                                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Sets</div>
+                                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e40af' }}>{exercise.sets}</div>
+                                </div>
+                              )}
+                              
+                              {/* Only show Reps if the exercise has reps (not null) */}
                               {exercise.reps && (
                                 <div style={{ textAlign: 'center' }}>
                                   <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Reps</div>
                                   <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e40af' }}>{exercise.reps}</div>
                                 </div>
                               )}
+                              
+                              {/* Only show Duration if the exercise has duration (not null) */}
                               {exercise.duration_seconds && (
                                 <div style={{ textAlign: 'center' }}>
                                   <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Duration</div>
                                   <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e40af' }}>{exercise.duration_seconds}s</div>
                                 </div>
                               )}
-                              <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Rest</div>
-                                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e40af' }}>{exercise.rest_seconds}s</div>
-                              </div>
+                              
+                              {/* Only show Rest if the exercise has rest time > 0 */}
+                              {exercise.rest_seconds > 0 && (
+                                <div style={{ textAlign: 'center' }}>
+                                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Rest</div>
+                                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e40af' }}>{exercise.rest_seconds}s</div>
+                                </div>
+                              )}
                             </div>
 
                             {exercise.exercises?.instructions && (

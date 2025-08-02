@@ -50,6 +50,7 @@ export interface Exercise {
   default_sets?: number
   default_reps?: number
   default_duration_seconds?: number
+  rest_seconds?: number
   instructions?: string
   video_demo_url?: string
   image_url?: string
