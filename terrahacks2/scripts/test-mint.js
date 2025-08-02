@@ -78,11 +78,11 @@ async function testActualMinting() {
     
     console.log('\n🎨 Preparing test NFT metadata...');
     
-    // Test NFT metadata
+    // Test NFT metadata with generated image
     const nftMetadata = {
       name: "Healthcare Rehab Achievement #1",
-      description: "Test NFT for completing rehabilitation exercises - Basic functionality test",
-      image: "https://gateway.pinata.cloud/ipfs/QmYourTestImageHash", // You can use any test image URL
+      description: "Test NFT for completing rehabilitation exercises - Generated with Gemini AI",
+      image: "http://localhost:3000/generated-nfts/nft-1754162025244.png", // Using the generated image
       attributes: [
         {
           trait_type: "Exercise Type",
@@ -95,6 +95,10 @@ async function testActualMinting() {
         {
           trait_type: "Date Completed",
           value: new Date().toISOString().split('T')[0]
+        },
+        {
+          trait_type: "Generated Image",
+          value: "Yes"
         }
       ]
     };

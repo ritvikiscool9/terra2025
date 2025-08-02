@@ -10,13 +10,17 @@
     "lint": "next lint",
     "test:nft": "node scripts/test-mint.js",
     "debug:contract": "node scripts/debug-contract.js",
-    "test:simple": "node scripts/simple-mint-test.js"
+    "test:simple": "node scripts/simple-mint-test.js",
+    "test:generate-mint": "node scripts/test-generate-mint.js",
+    "test:image": "node scripts/test-gemini-image.js"
   },
   "dependencies": {
+    "@google/genai": "^1.12.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.53.0",
     "dotenv": "^17.2.1",
     "next": "15.4.5",
+    "node-fetch": "^3.3.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "thirdweb": "^5.105.26"
