@@ -1,16 +1,23 @@
-import PatientLayout from "@/components/PatientLayout";
-import Head from "next/head";
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect to login page as the first screen
+    router.push('/login');
+  }, [router]);
+
   return (
-    <>
-      <Head>
-        <title>RehabTrack - Patient Portal</title>
-        <meta name="description" content="Medical rehabilitation and exercise tracking platform for patients" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-      <PatientLayout />
-    </>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100vh',
+      backgroundColor: '#f8fafc'
+    }}>
+      <div>Redirecting to login...</div>
+    </div>
   );
 }
