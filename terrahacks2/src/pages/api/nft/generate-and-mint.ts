@@ -5,12 +5,18 @@ import { createThirdwebClient, getContract, sendTransaction } from "thirdweb";
 import { polygonAmoy } from "thirdweb/chains";
 import { mintTo } from "thirdweb/extensions/erc721";
 import { privateKeyToAccount } from "thirdweb/wallets";
-import { supabaseAdmin } from '../../../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import * as fs from "fs";
 import * as path from "path";
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+// Create admin Supabase client directly (bypasses RLS)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 interface MintRequest {
   walletAddress: string;
