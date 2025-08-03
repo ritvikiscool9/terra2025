@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, Patient, ExerciseCompletion, Exercise, NFT, Routine, RoutineExercise } from '../lib/supabase';
+import AddCustomExerciseModal from './AddCustomExerciseModal';
 
 interface PatientWithStats extends Patient {
   totalExercises?: number;
@@ -27,6 +28,7 @@ export default function DoctorDashboard() {
   const [editingRoutineExercises, setEditingRoutineExercises] = useState<RoutineExercise[]>([]);
   const [showEditPatient, setShowEditPatient] = useState(false);
   const [editingPatient, setEditingPatient] = useState<PatientWithStats | null>(null);
+  const [showCustomExerciseModal, setShowCustomExerciseModal] = useState(false);
   const [newRoutine, setNewRoutine] = useState({
     title: '',
     description: '',
@@ -652,6 +654,12 @@ export default function DoctorDashboard() {
         i === index ? value : medication
       ) || []
     } : null);
+  };
+
+  const handleCustomExerciseAdded = (exercise: Exercise) => {
+    // Add the new custom exercise to available exercises
+    setAvailableExercises(prev => [exercise, ...prev]);
+    console.log('Custom exercise added to available exercises:', exercise);
   };
 
   const formatDate = (dateString: string) => {
@@ -1529,30 +1537,54 @@ export default function DoctorDashboard() {
 
               {/* Exercise Selection */}
               <div style={{ marginBottom: '24px' }}>
-                <h3 style={{
-                  color: '#374151',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  marginBottom: '12px'
-                }}>
-                  {selectedPatientForRoutine ? (
-                    <>
-                      Personalized Exercises for {selectedPatientForRoutine.first_name} {selectedPatientForRoutine.last_name}
-                      {selectedPatientForRoutine.medical_conditions && selectedPatientForRoutine.medical_conditions.length > 0 && (
-                        <div style={{ 
-                          fontSize: '14px', 
-                          color: '#6b7280', 
-                          fontWeight: '400',
-                          marginTop: '4px'
-                        }}>
-                          Medical Conditions: {selectedPatientForRoutine.medical_conditions.join(', ')}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    'Available Exercises'
-                  )}
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{
+                    color: '#374151',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    margin: '0'
+                  }}>
+                    {selectedPatientForRoutine ? (
+                      <>
+                        Personalized Exercises for {selectedPatientForRoutine.first_name} {selectedPatientForRoutine.last_name}
+                        {selectedPatientForRoutine.medical_conditions && selectedPatientForRoutine.medical_conditions.length > 0 && (
+                          <div style={{ 
+                            fontSize: '14px', 
+                            color: '#6b7280', 
+                            fontWeight: '400',
+                            marginTop: '4px'
+                          }}>
+                            Medical Conditions: {selectedPatientForRoutine.medical_conditions.join(', ')}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      'Available Exercises'
+                    )}
+                  </h3>
+                  <button
+                    onClick={() => setShowCustomExerciseModal(true)}
+                    style={{
+                      backgroundColor: '#059669',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#047857'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+                  >
+                    <span>💪</span>
+                    Add Custom Exercise
+                  </button>
+                </div>
                 
                 {isGeneratingExercises ? (
                   <div style={{
@@ -2023,14 +2055,38 @@ export default function DoctorDashboard() {
 
               {/* Exercise Selection */}
               <div style={{ marginBottom: '24px' }}>
-                <h3 style={{
-                  color: '#374151',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  marginBottom: '12px'
-                }}>
-                  Available Exercises
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{
+                    color: '#374151',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    margin: '0'
+                  }}>
+                    Available Exercises
+                  </h3>
+                  <button
+                    onClick={() => setShowCustomExerciseModal(true)}
+                    style={{
+                      backgroundColor: '#059669',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#047857'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+                  >
+                    <span>💪</span>
+                    Add Custom Exercise
+                  </button>
+                </div>
                 
                 {availableExercises.length > 0 ? (
                   <div style={{
@@ -2844,6 +2900,13 @@ export default function DoctorDashboard() {
           </div>
         </div>
       )}
+
+      {/* Add Custom Exercise Modal */}
+      <AddCustomExerciseModal
+        isOpen={showCustomExerciseModal}
+        onClose={() => setShowCustomExerciseModal(false)}
+        onExerciseAdded={handleCustomExerciseAdded}
+      />
 
       {/* Medical Disclaimer */}
       <div style={{

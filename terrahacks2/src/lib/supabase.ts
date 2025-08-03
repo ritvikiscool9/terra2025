@@ -60,6 +60,9 @@ export interface Exercise {
   instructions?: string
   video_demo_url?: string
   image_url?: string
+  equipment_needed?: string
+  muscle_groups?: string[]
+  safety_notes?: string
   created_at: string
   updated_at: string
 }
