@@ -79,6 +79,20 @@ export interface Routine {
   updated_at: string
 }
 
+export interface RoutineExercise {
+  id: string
+  routine_id: string
+  exercise_id: string
+  sets: number
+  reps?: number
+  duration_seconds?: number
+  rest_seconds?: number
+  order_in_routine: number
+  notes?: string
+  created_at: string
+  exercises?: Exercise // For joined queries
+}
+
 export interface ExerciseCompletion {
   id: string
   routine_exercise_id: string

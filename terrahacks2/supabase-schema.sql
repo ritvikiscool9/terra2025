@@ -174,6 +174,67 @@ create policy "Doctors can insert routines for their patients" on public.routine
     )
   );
 
+-- Drop existing policies if they exist before creating new ones
+drop policy if exists "Doctors can update routines they prescribed" on public.routines;
+create policy "Doctors can update routines they prescribed" on public.routines
+  for update using (
+    prescribed_by_doctor_id in (
+      select id from public.doctors where user_id = auth.uid()
+    )
+  );
+
+-- Routine exercises policies
+drop policy if exists "Doctors can view routine exercises" on public.routine_exercises;
+create policy "Doctors can view routine exercises" on public.routine_exercises
+  for select using (
+    routine_id in (
+      select r.id from public.routines r
+      inner join public.doctors d on r.prescribed_by_doctor_id = d.id
+      where d.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Doctors can insert routine exercises" on public.routine_exercises;
+create policy "Doctors can insert routine exercises" on public.routine_exercises
+  for insert with check (
+    routine_id in (
+      select r.id from public.routines r
+      inner join public.doctors d on r.prescribed_by_doctor_id = d.id
+      where d.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Doctors can update routine exercises" on public.routine_exercises;
+create policy "Doctors can update routine exercises" on public.routine_exercises
+  for update using (
+    routine_id in (
+      select r.id from public.routines r
+      inner join public.doctors d on r.prescribed_by_doctor_id = d.id
+      where d.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Doctors can delete routine exercises" on public.routine_exercises;
+create policy "Doctors can delete routine exercises" on public.routine_exercises
+  for delete using (
+    routine_id in (
+      select r.id from public.routines r
+      inner join public.doctors d on r.prescribed_by_doctor_id = d.id
+      where d.user_id = auth.uid()
+    )
+  );
+
+-- Patients can view their routine exercises
+drop policy if exists "Patients can view their routine exercises" on public.routine_exercises;
+create policy "Patients can view their routine exercises" on public.routine_exercises
+  for select using (
+    routine_id in (
+      select r.id from public.routines r
+      inner join public.patients p on r.patient_id = p.id
+      where p.user_id = auth.uid()
+    )
+  );
+
 -- Exercise completions
 create policy "Patients can view their completions" on public.exercise_completions
   for select using (

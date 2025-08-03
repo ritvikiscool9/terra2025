@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase, Patient, ExerciseCompletion, Exercise, NFT } from '../lib/supabase';
+import { supabase, Patient, ExerciseCompletion, Exercise, NFT, Routine, RoutineExercise } from '../lib/supabase';
 
 interface PatientWithStats extends Patient {
   totalExercises?: number;
@@ -13,14 +13,18 @@ export default function DoctorDashboard() {
   const [selectedPatient, setSelectedPatient] = useState<PatientWithStats | null>(null);
   const [patientCompletions, setPatientCompletions] = useState<ExerciseCompletion[]>([]);
   const [patientNFTs, setPatientNFTs] = useState<NFT[]>([]);
+  const [patientRoutines, setPatientRoutines] = useState<Routine[]>([]);
   const [isLoadingNFTs, setIsLoadingNFTs] = useState(false);
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [showCreateRoutine, setShowCreateRoutine] = useState(false);
+  const [showEditRoutine, setShowEditRoutine] = useState(false);
   const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
   const [isGeneratingExercises, setIsGeneratingExercises] = useState(false);
   const [selectedPatientForRoutine, setSelectedPatientForRoutine] = useState<PatientWithStats | null>(null);
+  const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
+  const [editingRoutineExercises, setEditingRoutineExercises] = useState<RoutineExercise[]>([]);
   const [newRoutine, setNewRoutine] = useState({
     title: '',
     description: '',
@@ -70,6 +74,29 @@ export default function DoctorDashboard() {
       setPatientNFTs([]);
     } finally {
       setIsLoadingNFTs(false);
+    }
+  };
+
+  const fetchPatientRoutines = async (patientId: string) => {
+    try {
+      console.log('Fetching routines for patient:', patientId);
+      
+      const { data: routines, error } = await supabase
+        .from('routines')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching routines:', error);
+        throw error;
+      }
+
+      console.log('Fetched routines:', routines);
+      setPatientRoutines(routines || []);
+    } catch (err) {
+      console.error('Error fetching routines:', err);
+      setPatientRoutines([]);
     }
   };
 
@@ -198,6 +225,9 @@ export default function DoctorDashboard() {
 
       // Fetch NFTs for this patient
       await fetchPatientNFTs(patient.id);
+
+      // Fetch routines for this patient
+      await fetchPatientRoutines(patient.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch patient details');
     }
@@ -365,10 +395,164 @@ export default function DoctorDashboard() {
 
       // Refresh the patients list to show updated data
       await fetchPatients();
+      
+      // If we have a selected patient, refresh their routines
+      if (selectedPatient) {
+        await fetchPatientRoutines(selectedPatient.id);
+      }
     } catch (err) {
       console.error('Error creating routine:', err);
       alert(`Failed to create routine: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again.`);
     }
+  };
+
+  const startEditRoutine = async (routine: Routine) => {
+    try {
+      setEditingRoutine(routine);
+      
+      // Fetch the routine exercises with exercise details
+      const { data: routineExercises, error } = await supabase
+        .from('routine_exercises')
+        .select(`
+          *,
+          exercises (
+            id,
+            name,
+            description,
+            category,
+            difficulty_level,
+            default_sets,
+            default_reps,
+            default_duration_seconds,
+            instructions
+          )
+        `)
+        .eq('routine_id', routine.id)
+        .order('order_in_routine');
+
+      if (error) {
+        console.error('Error fetching routine exercises:', error);
+        throw error;
+      }
+
+      console.log('Fetched routine exercises:', routineExercises);
+      setEditingRoutineExercises(routineExercises || []);
+      
+      // Set up the available exercises for adding new ones
+      await fetchAvailableExercises();
+      
+      setShowEditRoutine(true);
+    } catch (err) {
+      console.error('Error starting routine edit:', err);
+      alert('Failed to load routine details for editing');
+    }
+  };
+
+  const updateRoutine = async () => {
+    try {
+      if (!editingRoutine) return;
+
+      console.log('Updating routine:', editingRoutine);
+
+      // Update the routine basic info
+      const { error: routineError } = await supabase
+        .from('routines')
+        .update({
+          title: editingRoutine.title,
+          description: editingRoutine.description,
+          frequency_per_week: editingRoutine.frequency_per_week,
+          is_active: editingRoutine.is_active
+        })
+        .eq('id', editingRoutine.id);
+
+      if (routineError) {
+        console.error('Error updating routine:', routineError);
+        throw routineError;
+      }
+
+      // Delete existing routine exercises
+      const { error: deleteError } = await supabase
+        .from('routine_exercises')
+        .delete()
+        .eq('routine_id', editingRoutine.id);
+
+      if (deleteError) {
+        console.error('Error deleting old routine exercises:', deleteError);
+        throw deleteError;
+      }
+
+      // Re-insert the updated routine exercises
+      if (editingRoutineExercises.length > 0) {
+        const exercisesToInsert = editingRoutineExercises.map((ex, index) => ({
+          routine_id: editingRoutine.id,
+          exercise_id: ex.exercise_id,
+          sets: ex.sets,
+          reps: ex.reps,
+          duration_seconds: ex.duration_seconds,
+          rest_seconds: ex.rest_seconds,
+          order_in_routine: index + 1,
+          notes: ex.notes
+        }));
+
+        const { error: insertError } = await supabase
+          .from('routine_exercises')
+          .insert(exercisesToInsert);
+
+        if (insertError) {
+          console.error('Error inserting updated routine exercises:', insertError);
+          throw insertError;
+        }
+      }
+
+      alert('Routine updated successfully!');
+      setShowEditRoutine(false);
+      setEditingRoutine(null);
+      setEditingRoutineExercises([]);
+      setAvailableExercises([]);
+
+      // Refresh patient routines
+      if (selectedPatient) {
+        await fetchPatientRoutines(selectedPatient.id);
+      }
+    } catch (err) {
+      console.error('Error updating routine:', err);
+      alert(`Failed to update routine: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again.`);
+    }
+  };
+
+  const addExerciseToEditingRoutine = (exercise: Exercise) => {
+    const routineExercise: RoutineExercise = {
+      id: `temp-${Date.now()}`, // Temporary ID for new exercises
+      routine_id: editingRoutine?.id || '',
+      exercise_id: exercise.id,
+      sets: exercise.default_sets || 1,
+      reps: exercise.default_reps || undefined,
+      duration_seconds: exercise.default_duration_seconds || undefined,
+      rest_seconds: exercise.rest_seconds || 60,
+      order_in_routine: editingRoutineExercises.length + 1,
+      notes: '',
+      created_at: new Date().toISOString(),
+      exercises: exercise
+    };
+    
+    setEditingRoutineExercises(prev => [...prev, routineExercise]);
+  };
+
+  const removeExerciseFromEditingRoutine = (index: number) => {
+    setEditingRoutineExercises(prev => 
+      prev.filter((_, i) => i !== index).map((ex, i) => ({
+        ...ex,
+        order_in_routine: i + 1
+      }))
+    );
+  };
+
+  const updateEditingRoutineExercise = (index: number, field: string, value: any) => {
+    setEditingRoutineExercises(prev =>
+      prev.map((ex, i) => 
+        i === index ? { ...ex, [field]: value } : ex
+      )
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -781,6 +965,122 @@ export default function DoctorDashboard() {
                       <h3 style={{ color: '#6b7280', marginBottom: '8px' }}>No Exercise Completions</h3>
                       <p style={{ color: '#9ca3af', fontSize: '14px', margin: '0' }}>
                         This patient hasn't completed any exercises yet.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Patient Routines */}
+                <div style={{ marginTop: '30px' }}>
+                  <h3 style={{
+                    color: '#374151',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <span style={{ fontSize: '20px' }}>📋</span>
+                    Patient Routines ({patientRoutines.length})
+                  </h3>
+
+                  {patientRoutines.length > 0 ? (
+                    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                      {patientRoutines.map((routine) => (
+                        <div
+                          key={routine.id}
+                          style={{
+                            border: '2px solid #e2e8f0',
+                            borderRadius: '8px',
+                            padding: '16px',
+                            marginBottom: '12px',
+                            backgroundColor: '#f8fafc'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
+                            <div>
+                              <h4 style={{
+                                color: '#1e40af',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                margin: '0 0 4px 0'
+                              }}>
+                                {routine.title}
+                              </h4>
+                              {routine.description && (
+                                <p style={{
+                                  color: '#6b7280',
+                                  fontSize: '14px',
+                                  margin: '0 0 8px 0',
+                                  lineHeight: '1.4'
+                                }}>
+                                  {routine.description}
+                                </p>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                onClick={() => startEditRoutine(routine)}
+                                style={{
+                                  backgroundColor: '#f59e0b',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: '500',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <span>✏️</span>
+                                Edit
+                              </button>
+                              <span style={{
+                                backgroundColor: routine.is_active ? '#22c55e' : '#6b7280',
+                                color: 'white',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '500'
+                              }}>
+                                {routine.is_active ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', fontSize: '14px' }}>
+                            <div>
+                              <span style={{ color: '#6b7280', fontWeight: '500' }}>Start Date:</span>
+                              <div style={{ color: '#374151' }}>{formatDate(routine.start_date)}</div>
+                            </div>
+                            <div>
+                              <span style={{ color: '#6b7280', fontWeight: '500' }}>Frequency:</span>
+                              <div style={{ color: '#374151' }}>{routine.frequency_per_week}x/week</div>
+                            </div>
+                            <div>
+                              <span style={{ color: '#6b7280', fontWeight: '500' }}>Created:</span>
+                              <div style={{ color: '#374151' }}>{formatDate(routine.created_at)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '40px',
+                      border: '2px dashed #d1d5db',
+                      borderRadius: '8px',
+                      backgroundColor: '#f9fafb'
+                    }}>
+                      <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+                      <h4 style={{ color: '#6b7280', marginBottom: '8px' }}>No Routines Assigned</h4>
+                      <p style={{ color: '#9ca3af', fontSize: '14px', margin: '0' }}>
+                        This patient doesn't have any workout routines yet. Create one using the "Create Routine" button.
                       </p>
                     </div>
                   )}
@@ -1412,6 +1712,454 @@ export default function DoctorDashboard() {
                   }}
                 >
                   Create Routine
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Routine Modal */}
+      {showEditRoutine && editingRoutine && (
+        <div style={{
+          position: 'fixed',
+          top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '24px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h2 style={{
+                color: '#1e40af',
+                fontSize: '24px',
+                fontWeight: '700',
+                margin: '0'
+              }}>
+                Edit Routine: {editingRoutine.title}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowEditRoutine(false);
+                  setEditingRoutine(null);
+                  setEditingRoutineExercises([]);
+                  setAvailableExercises([]);
+                }}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ padding: '24px' }}>
+              {/* Routine Basic Info */}
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    color: '#374151',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '8px'
+                  }}>
+                    Routine Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={editingRoutine.title}
+                    onChange={(e) => setEditingRoutine(prev => prev ? { ...prev, title: e.target.value } : null)}
+                    placeholder="e.g., Upper Body Strength Training"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    color: '#374151',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '8px'
+                  }}>
+                    Description
+                  </label>
+                  <textarea
+                    value={editingRoutine.description || ''}
+                    onChange={(e) => setEditingRoutine(prev => prev ? { ...prev, description: e.target.value } : null)}
+                    placeholder="Brief description of the routine goals and focus areas"
+                    rows={3}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      outline: 'none',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+                  <div style={{ flex: '1' }}>
+                    <label style={{
+                      display: 'block',
+                      color: '#374151',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      marginBottom: '8px'
+                    }}>
+                      Frequency per Week
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="7"
+                      value={editingRoutine.frequency_per_week}
+                      onChange={(e) => setEditingRoutine(prev => prev ? { ...prev, frequency_per_week: parseInt(e.target.value) } : null)}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '8px',
+                        fontSize: '16px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div style={{ flex: '1' }}>
+                    <label style={{
+                      display: 'block',
+                      color: '#374151',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      marginBottom: '8px'
+                    }}>
+                      Status
+                    </label>
+                    <select
+                      value={editingRoutine.is_active ? 'active' : 'inactive'}
+                      onChange={(e) => setEditingRoutine(prev => prev ? { ...prev, is_active: e.target.value === 'active' } : null)}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '8px',
+                        fontSize: '16px',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Exercise Selection */}
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{
+                  color: '#374151',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  marginBottom: '12px'
+                }}>
+                  Available Exercises
+                </h3>
+                
+                {availableExercises.length > 0 ? (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                    gap: '12px',
+                    maxHeight: '200px',
+                    overflow: 'auto',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '16px'
+                  }}>
+                    {availableExercises.map(exercise => (
+                      <div
+                        key={exercise.id}
+                        onClick={() => addExerciseToEditingRoutine(exercise)}
+                        style={{
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          backgroundColor: '#f9fafb',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                      >
+                        <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '4px' }}>
+                          {exercise.name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                          {exercise.category} • Level {exercise.difficulty_level}
+                        </div>
+                        {exercise.description && (
+                          <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                            {exercise.description}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '40px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    backgroundColor: '#f9fafb',
+                    color: '#6b7280'
+                  }}>
+                    Loading exercises...
+                  </div>
+                )}
+              </div>
+
+              {/* Current Exercises */}
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{
+                  color: '#374151',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  marginBottom: '12px'
+                }}>
+                  Current Exercises ({editingRoutineExercises.length})
+                </h3>
+                {editingRoutineExercises.length === 0 ? (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '40px',
+                    border: '2px dashed #d1d5db',
+                    borderRadius: '8px',
+                    color: '#6b7280'
+                  }}>
+                    No exercises in this routine yet. Click on exercises above to add them.
+                  </div>
+                ) : (
+                  <div>
+                    {editingRoutineExercises.map((routineExercise, index) => (
+                      <div
+                        key={routineExercise.id}
+                        style={{
+                          border: '2px solid #e5e7eb',
+                          borderRadius: '8px',
+                          padding: '16px',
+                          marginBottom: '12px',
+                          backgroundColor: '#f9fafb'
+                        }}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '12px'
+                        }}>
+                          <h4 style={{
+                            color: '#1e40af',
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            margin: '0'
+                          }}>
+                            {index + 1}. {routineExercise.exercises?.name || 'Unknown Exercise'}
+                          </h4>
+                          <button
+                            onClick={() => removeExerciseFromEditingRoutine(index)}
+                            style={{
+                              backgroundColor: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '12px'
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                          gap: '12px'
+                        }}>
+                          {/* Only show Sets if the exercise has more than 1 set OR if it has reps */}
+                          {(routineExercise.sets > 1 || routineExercise.reps !== null) && (
+                            <div>
+                              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                                Sets
+                              </label>
+                              <input
+                                type="number"
+                                value={routineExercise.sets}
+                                onChange={(e) => updateEditingRoutineExercise(index, 'sets', parseInt(e.target.value) || 1)}
+                                min="1"
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '4px',
+                                  fontSize: '14px'
+                                }}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Only show Reps if the exercise has reps (not null) */}
+                          {routineExercise.reps !== null && (
+                            <div>
+                              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                                Reps
+                              </label>
+                              <input
+                                type="number"
+                                value={routineExercise.reps || ''}
+                                onChange={(e) => updateEditingRoutineExercise(index, 'reps', parseInt(e.target.value) || null)}
+                                min="1"
+                                placeholder="10"
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '4px',
+                                  fontSize: '14px'
+                                }}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Only show Duration if the exercise has duration (not null) */}
+                          {routineExercise.duration_seconds !== null && (
+                            <div>
+                              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                                Duration (sec)
+                              </label>
+                              <input
+                                type="number"
+                                value={routineExercise.duration_seconds || ''}
+                                onChange={(e) => updateEditingRoutineExercise(index, 'duration_seconds', parseInt(e.target.value) || null)}
+                                min="1"
+                                placeholder="30"
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '4px',
+                                  fontSize: '14px'
+                                }}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Notes field */}
+                          <div style={{ gridColumn: 'span 2' }}>
+                            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                              Notes
+                            </label>
+                            <input
+                              type="text"
+                              value={routineExercise.notes || ''}
+                              onChange={(e) => updateEditingRoutineExercise(index, 'notes', e.target.value)}
+                              placeholder="Special instructions..."
+                              style={{
+                                width: '100%',
+                                padding: '8px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '4px',
+                                fontSize: '14px'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                paddingTop: '24px',
+                borderTop: '1px solid #e5e7eb'
+              }}>
+                <button
+                  onClick={() => {
+                    setShowEditRoutine(false);
+                    setEditingRoutine(null);
+                    setEditingRoutineExercises([]);
+                    setAvailableExercises([]);
+                  }}
+                  style={{
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={updateRoutine}
+                  style={{
+                    backgroundColor: '#1e40af',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Update Routine
                 </button>
               </div>
             </div>
