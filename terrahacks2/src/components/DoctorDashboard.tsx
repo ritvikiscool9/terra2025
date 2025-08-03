@@ -29,6 +29,7 @@ export default function DoctorDashboard() {
   const [showEditPatient, setShowEditPatient] = useState(false);
   const [editingPatient, setEditingPatient] = useState<PatientWithStats | null>(null);
   const [showCustomExerciseModal, setShowCustomExerciseModal] = useState(false);
+  const [exerciseSearchQuery, setExerciseSearchQuery] = useState('');
   const [newRoutine, setNewRoutine] = useState({
     title: '',
     description: '',
@@ -390,6 +391,7 @@ export default function DoctorDashboard() {
       setShowCreateRoutine(false);
       setSelectedPatientForRoutine(null);
       setAvailableExercises([]);
+      setExerciseSearchQuery('');
       setNewRoutine({
         title: '',
         description: '',
@@ -513,6 +515,7 @@ export default function DoctorDashboard() {
       setEditingRoutine(null);
       setEditingRoutineExercises([]);
       setAvailableExercises([]);
+      setExerciseSearchQuery('');
 
       // Refresh patient routines
       if (selectedPatient) {
@@ -660,6 +663,22 @@ export default function DoctorDashboard() {
     // Add the new custom exercise to available exercises
     setAvailableExercises(prev => [exercise, ...prev]);
     console.log('Custom exercise added to available exercises:', exercise);
+  };
+
+  const getFilteredExercises = () => {
+    if (!exerciseSearchQuery.trim()) {
+      return availableExercises;
+    }
+    
+    const query = exerciseSearchQuery.toLowerCase();
+    return availableExercises.filter(exercise =>
+      exercise.name.toLowerCase().includes(query) ||
+      (exercise.category && exercise.category.toLowerCase().includes(query)) ||
+      (exercise.description && exercise.description.toLowerCase().includes(query)) ||
+      (exercise.muscle_groups && exercise.muscle_groups.some(muscle => 
+        muscle.toLowerCase().includes(query)
+      ))
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -1413,6 +1432,7 @@ export default function DoctorDashboard() {
                   setShowCreateRoutine(false);
                   setSelectedPatientForRoutine(null);
                   setAvailableExercises([]);
+                  setExerciseSearchQuery('');
                   setNewRoutine({
                     title: '',
                     description: '',
@@ -1585,6 +1605,71 @@ export default function DoctorDashboard() {
                     Add Custom Exercise
                   </button>
                 </div>
+
+                {/* Search Bar */}
+                {availableExercises.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={exerciseSearchQuery}
+                        onChange={(e) => setExerciseSearchQuery(e.target.value)}
+                        placeholder="Search exercises by name, category, or muscle group..."
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px 12px 40px',
+                          border: '2px solid #e5e7eb',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          outline: 'none',
+                          backgroundColor: '#f9fafb',
+                          color: '#374151'
+                        }}
+                      />
+                      <span style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '16px',
+                        color: '#6b7280'
+                      }}>
+                        🔍
+                      </span>
+                      {exerciseSearchQuery && (
+                        <button
+                          onClick={() => setExerciseSearchQuery('')}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            fontSize: '18px',
+                            color: '#6b7280',
+                            cursor: 'pointer',
+                            padding: '0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    {exerciseSearchQuery && (
+                      <div style={{
+                        fontSize: '12px',
+                        color: '#6b7280',
+                        marginTop: '4px'
+                      }}>
+                        Found {getFilteredExercises().length} exercise{getFilteredExercises().length !== 1 ? 's' : ''} matching "{exerciseSearchQuery}"
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 {isGeneratingExercises ? (
                   <div style={{
@@ -1620,6 +1705,21 @@ export default function DoctorDashboard() {
                   }}>
                     Please select a patient to generate personalized exercises
                   </div>
+                ) : getFilteredExercises().length === 0 && exerciseSearchQuery ? (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '40px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    backgroundColor: '#f9fafb',
+                    color: '#6b7280'
+                  }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+                    <h4 style={{ margin: '0 0 8px 0' }}>No exercises found</h4>
+                    <p style={{ margin: '0', fontSize: '14px' }}>
+                      Try searching with different keywords or clear the search to see all exercises.
+                    </p>
+                  </div>
                 ) : (
                   <div style={{
                     display: 'grid',
@@ -1631,7 +1731,7 @@ export default function DoctorDashboard() {
                     borderRadius: '8px',
                     padding: '16px'
                   }}>
-                    {availableExercises.map(exercise => (
+                    {getFilteredExercises().map(exercise => (
                       <div
                         key={exercise.id}
                         onClick={() => addExerciseToRoutine(exercise)}
@@ -1927,6 +2027,7 @@ export default function DoctorDashboard() {
                   setEditingRoutine(null);
                   setEditingRoutineExercises([]);
                   setAvailableExercises([]);
+                  setExerciseSearchQuery('');
                 }}
                 style={{
                   backgroundColor: 'transparent',
@@ -2087,47 +2188,129 @@ export default function DoctorDashboard() {
                     Add Custom Exercise
                   </button>
                 </div>
+
+                {/* Search Bar */}
+                {availableExercises.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={exerciseSearchQuery}
+                        onChange={(e) => setExerciseSearchQuery(e.target.value)}
+                        placeholder="Search exercises by name, category, or muscle group..."
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px 12px 40px',
+                          border: '2px solid #e5e7eb',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          outline: 'none',
+                          backgroundColor: '#f9fafb',
+                          color: '#374151'
+                        }}
+                      />
+                      <span style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '16px',
+                        color: '#6b7280'
+                      }}>
+                        🔍
+                      </span>
+                      {exerciseSearchQuery && (
+                        <button
+                          onClick={() => setExerciseSearchQuery('')}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            fontSize: '18px',
+                            color: '#6b7280',
+                            cursor: 'pointer',
+                            padding: '0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    {exerciseSearchQuery && (
+                      <div style={{
+                        fontSize: '12px',
+                        color: '#6b7280',
+                        marginTop: '4px'
+                      }}>
+                        Found {getFilteredExercises().length} exercise{getFilteredExercises().length !== 1 ? 's' : ''} matching "{exerciseSearchQuery}"
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 {availableExercises.length > 0 ? (
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                    gap: '12px',
-                    maxHeight: '200px',
-                    overflow: 'auto',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '8px',
-                    padding: '16px'
-                  }}>
-                    {availableExercises.map(exercise => (
-                      <div
-                        key={exercise.id}
-                        onClick={() => addExerciseToEditingRoutine(exercise)}
-                        style={{
-                          padding: '12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          backgroundColor: '#f9fafb',
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                      >
-                        <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '4px' }}>
-                          {exercise.name}
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
-                          {exercise.category} • Level {exercise.difficulty_level}
-                        </div>
-                        {exercise.description && (
-                          <div style={{ fontSize: '11px', color: '#9ca3af' }}>
-                            {exercise.description}
+                  getFilteredExercises().length === 0 && exerciseSearchQuery ? (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '40px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      backgroundColor: '#f9fafb',
+                      color: '#6b7280'
+                    }}>
+                      <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+                      <h4 style={{ margin: '0 0 8px 0' }}>No exercises found</h4>
+                      <p style={{ margin: '0', fontSize: '14px' }}>
+                        Try searching with different keywords or clear the search to see all exercises.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                      gap: '12px',
+                      maxHeight: '200px',
+                      overflow: 'auto',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '16px'
+                    }}>
+                      {getFilteredExercises().map(exercise => (
+                        <div
+                          key={exercise.id}
+                          onClick={() => addExerciseToEditingRoutine(exercise)}
+                          style={{
+                            padding: '12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            backgroundColor: '#f9fafb',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                        >
+                          <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '4px' }}>
+                            {exercise.name}
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                            {exercise.category} • Level {exercise.difficulty_level}
+                          </div>
+                          {exercise.description && (
+                            <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                              {exercise.description}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )
                 ) : (
                   <div style={{
                     textAlign: 'center',
@@ -2318,6 +2501,7 @@ export default function DoctorDashboard() {
                     setEditingRoutine(null);
                     setEditingRoutineExercises([]);
                     setAvailableExercises([]);
+                    setExerciseSearchQuery('');
                   }}
                   style={{
                     backgroundColor: '#6b7280',
