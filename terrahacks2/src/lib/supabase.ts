@@ -5,6 +5,10 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+// Server-side client with service role key (bypasses RLS)
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
+
 // Types for our database tables
 export interface Doctor {
   id: string
@@ -89,4 +93,34 @@ export interface ExerciseCompletion {
   nft_minted: boolean
   nft_token_id?: string
   created_at: string
+}
+
+export interface NFT {
+  id: string
+  patient_id: string
+  exercise_completion_id: string
+  name: string
+  description: string
+  image_url: string
+  token_id?: string
+  contract_address: string
+  wallet_address: string
+  transaction_hash?: string
+  block_number?: number
+  exercise_type: string
+  completion_score?: number
+  difficulty_level?: string
+  body_part?: string
+  rarity?: string
+  minted: boolean
+  minted_at?: string
+  ai_generated: boolean
+  image_prompt?: string
+  generation_model?: string
+  attributes?: any
+  metadata_uri?: string
+  viewed_by_patient: boolean
+  viewed_by_doctor: boolean
+  created_at: string
+  updated_at: string
 }
