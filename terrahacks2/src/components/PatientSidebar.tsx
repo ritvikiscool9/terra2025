@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 
 interface PatientSidebarProps {
   currentPage: string;
@@ -9,6 +10,14 @@ interface PatientSidebarProps {
 
 export default function PatientSidebar({ currentPage, onPageChange, selectedRoutine, hasActiveRoutine }: PatientSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const router = useRouter();
+
+  const handleLogout = () => {
+    // Clear any stored patient data
+    localStorage.removeItem('selectedPatientId');
+    // Redirect to login page
+    router.push('/login');
+  };
 
   const menuItems = [
     {
@@ -203,7 +212,8 @@ export default function PatientSidebar({ currentPage, onPageChange, selectedRout
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '12px'
+            gap: '12px',
+            marginBottom: '16px'
           }}>
             <div style={{
               width: '40px',
@@ -234,6 +244,36 @@ export default function PatientSidebar({ currentPage, onPageChange, selectedRout
               </div>
             </div>
           </div>
+          
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              backgroundColor: '#dc2626',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'background-color 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#b91c1c';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#dc2626';
+            }}
+          >
+            <span>🚪</span>
+            Logout
+          </button>
         </div>
       )}
 

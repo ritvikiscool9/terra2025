@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase, NFT } from '../lib/supabase';
 import PatientSidebar from './PatientSidebar';
 import VideoAnalyzer from './VideoAnalyzer';
+import type { User } from '@supabase/supabase-js';
 
 interface PatientLayoutProps {
   initialPage?: string;
@@ -50,6 +51,10 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
   const [editedMedications, setEditedMedications] = useState<string[]>([]);
   const [isSavingMedical, setIsSavingMedical] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<any>(null);
+  const [exerciseCompletions, setExerciseCompletions] = useState<{[key: string]: boolean}>({});
+  const [completionData, setCompletionData] = useState<{[key: string]: any}>({});
+  const [user, setUser] = useState<User | null>(null);
+  const [isClaimingNFT, setIsClaimingNFT] = useState(false);
 
   useEffect(() => {
     if (currentPage === 'routines') {
@@ -59,6 +64,22 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
       fetchPatientData();
     }
   }, [currentPage]);
+
+  // Fetch current user
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const fetchPatientData = async () => {
     try {
@@ -182,6 +203,11 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
   const fetchRoutineExercises = async (routineId: string) => {
     try {
       console.log('🔄 Fetching exercises for routine:', routineId);
+      
+      // Clear previous completions when switching routines
+      setExerciseCompletions({});
+      setCompletionData({});
+      
       const { data: exercises, error } = await supabase
         .from('routine_exercises')
         .select(`
@@ -199,6 +225,11 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
       console.log('✅ Fetched routine exercises:', exercises);
       setRoutineExercises(exercises || []);
       
+      // Fetch completion data for this routine
+      if (exercises && exercises.length > 0) {
+        await fetchExerciseCompletions(routineId, exercises);
+      }
+      
       if (!exercises || exercises.length === 0) {
         console.warn('⚠️ No exercises found for routine:', routineId);
       } else {
@@ -209,6 +240,51 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
       }
     } catch (err) {
       console.error('❌ Error fetching routine exercises:', err);
+    }
+  };
+
+  const fetchExerciseCompletions = async (routineId: string, exercises: any[]) => {
+    try {
+      const patientId = localStorage.getItem('selectedPatientId');
+      if (!patientId) return;
+
+      console.log('🔄 Fetching exercise completions for patient:', patientId);
+      
+      const { data: completions, error } = await supabase
+        .from('exercise_completions')
+        .select('*')
+        .eq('patient_id', patientId)
+        .in('routine_exercise_id', exercises.map(ex => ex.id))
+        .eq('completion_status', 'completed')
+        .order('completion_date', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error fetching completions:', error);
+        return;
+      }
+
+      console.log('✅ Fetched completions:', completions);
+
+      // Build completion maps
+      const completionMap: {[key: string]: boolean} = {};
+      const completionDataMap: {[key: string]: any} = {};
+
+      exercises.forEach(exercise => {
+        const exerciseName = exercise.exercises?.name || 'Unknown Exercise';
+        const completion = completions?.find(c => c.routine_exercise_id === exercise.id);
+        
+        completionMap[exerciseName] = !!completion;
+        if (completion) {
+          completionDataMap[exerciseName] = completion;
+        }
+      });
+
+      setExerciseCompletions(completionMap);
+      setCompletionData(completionDataMap);
+      
+      console.log('📊 Completion status:', completionMap);
+    } catch (err) {
+      console.error('❌ Error fetching exercise completions:', err);
     }
   };
 
@@ -409,6 +485,180 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
   const removeMedication = (index: number) => {
     const updated = editedMedications.filter((_, i) => i !== index);
     setEditedMedications(updated);
+  };
+
+  const handleExerciseCompletion = async (exerciseName: string, passed: boolean, analysisResult?: any): Promise<string | null> => {
+    console.log(`📊 Exercise completion: ${exerciseName} = ${passed}`);
+    
+    // Update local state immediately for UI responsiveness
+    setExerciseCompletions(prev => ({
+      ...prev,
+      [exerciseName]: passed
+    }));
+
+    // Save to database if exercise passed
+    if (passed && selectedRoutine && patientData) {
+      try {
+        // Find the routine exercise
+        const routineExercise = routineExercises.find(ex => 
+          ex.exercises?.name === exerciseName
+        );
+
+        if (!routineExercise) {
+          console.error('❌ Could not find routine exercise for:', exerciseName);
+          return null;
+        }
+
+        console.log('💾 Saving exercise completion to database...');
+
+        const completionData = {
+          routine_exercise_id: routineExercise.id,
+          patient_id: patientData.id,
+          completion_status: 'completed',
+          ai_analysis_result: analysisResult || null,
+          form_score: analysisResult?.form_score || null,
+          actual_sets: analysisResult?.sets_completed || routineExercise.sets,
+          actual_reps: analysisResult?.reps_completed || routineExercise.reps,
+          actual_duration_seconds: analysisResult?.video_duration_seconds || routineExercise.duration_seconds,
+          completion_date: new Date().toISOString(),
+          nft_minted: false
+        };
+
+        const { data, error } = await supabase
+          .from('exercise_completions')
+          .insert([completionData])
+          .select();
+
+        if (error) {
+          console.error('❌ Error saving completion:', error);
+          // Revert local state on error
+          setExerciseCompletions(prev => ({
+            ...prev,
+            [exerciseName]: false
+          }));
+          return null;
+        }
+
+        console.log('✅ Exercise completion saved:', data);
+
+        // Update completion data map
+        if (data && data[0]) {
+          setCompletionData(prev => ({
+            ...prev,
+            [exerciseName]: data[0]
+          }));
+          
+          // Return the completion ID for NFT minting
+          return data[0].id;
+        }
+
+        // Check if all exercises are completed for NFT minting
+        const updatedCompletions = {
+          ...exerciseCompletions,
+          [exerciseName]: true
+        };
+        
+        const totalExercises = routineExercises.length;
+        const completedCount = Object.values(updatedCompletions).filter(Boolean).length;
+        
+        if (completedCount === totalExercises && totalExercises > 0) {
+          console.log('🎉 All exercises completed! Eligible for NFT minting');
+          // TODO: Trigger NFT minting process
+        }
+
+      } catch (err) {
+        console.error('❌ Error in handleExerciseCompletion:', err);
+        // Revert local state on error
+        setExerciseCompletions(prev => ({
+          ...prev,
+          [exerciseName]: false
+        }));
+        return null;
+      }
+    }
+    
+    return null; // Return null if exercise didn't pass or other conditions not met
+  };
+
+  const handleCompleteRoutine = async () => {
+    if (!selectedRoutine || !patientData || !user) {
+      console.error('❌ Missing required data for NFT claiming');
+      return;
+    }
+
+    setIsClaimingNFT(true);
+
+    try {
+      // Import wallet connection function
+      const { connectWallet } = await import('../lib/wallet');
+      
+      console.log('🔗 Connecting wallet for NFT claim...');
+      const walletAddress = await connectWallet();
+      
+      if (!walletAddress) {
+        throw new Error('Failed to connect wallet');
+      }
+
+      console.log('✅ Wallet connected:', walletAddress);
+      console.log('🎨 Starting NFT generation and minting...');
+
+      // Get the primary exercise from the routine for NFT generation
+      const primaryExercise = routineExercises[0]; // Use first exercise as primary
+      const exerciseName = primaryExercise?.exercises?.name || 'Fitness Routine';
+      const bodyPart = primaryExercise?.exercises?.category || 'Full Body';
+      const difficulty = primaryExercise?.exercises?.difficulty_level === 1 ? 'Easy' : 
+                        primaryExercise?.exercises?.difficulty_level === 2 ? 'Intermediate' : 'Hard';
+
+      // Call the NFT generation API
+      const response = await fetch('/api/nft/generate-and-mint', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          walletAddress,
+          exerciseType: exerciseName,
+          difficulty,
+          bodyPart,
+          patientId: patientData.id,
+          // Use the most recent completion ID if available
+          exerciseCompletionId: Object.values(completionData)[0]?.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to claim NFT');
+      }
+
+      console.log('🎉 NFT claimed successfully!', result);
+
+      // Show success message and refresh NFT count
+      alert(`🎉 Congratulations! Your NFT has been minted successfully!\n\nTransaction Hash: ${result.data.transactionHash}\n\nYou can view it on PolygonScan: ${result.data.polygonScanUrl}`);
+      
+      // Refresh NFT count
+      await fetchNFTCount();
+      
+      // Optionally redirect to NFT collection page
+      setCurrentPage('nfts');
+
+    } catch (error) {
+      console.error('❌ NFT claiming failed:', error);
+      alert(`❌ Failed to claim NFT: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsClaimingNFT(false);
+    }
+  };
+
+  const fetchNFTCount = async () => {
+    if (patientData) {
+      await fetchPatientNFTs(patientData.id);
+    }
+  };
+
+  const getCompletedCount = () => {
+    return Object.values(exerciseCompletions).filter(Boolean).length;
   };
 
   const renderContent = () => {
@@ -623,7 +873,7 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
                       fontSize: '14px',
                       fontWeight: '600'
                     }}>
-                      0 / {routineExercises.length} completed
+                      {getCompletedCount()} / {routineExercises.length} completed
                     </div>
                     <div style={{
                       flex: 1,
@@ -633,7 +883,7 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
                       overflow: 'hidden'
                     }}>
                       <div style={{
-                        width: '0%',
+                        width: `${routineExercises.length > 0 ? (getCompletedCount() / routineExercises.length) * 100 : 0}%`,
                         height: '100%',
                         backgroundColor: '#10b981',
                         transition: 'width 0.3s ease'
@@ -645,8 +895,71 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
                     fontSize: '14px',
                     margin: '0'
                   }}>
-                    Record videos for each exercise to get personalized feedback and earn your NFT when complete!
+                    {getCompletedCount() === routineExercises.length && routineExercises.length > 0 ? (
+                      <span style={{ color: '#16a34a', fontWeight: '600' }}>
+                        🎉 Congratulations! You've completed all exercises in this routine!
+                      </span>
+                    ) : (
+                      'Record videos for each exercise to get personalized feedback and earn your NFT when complete!'
+                    )}
                   </p>
+
+                  {/* Complete Routine Button - Show when all exercises are completed */}
+                  {getCompletedCount() === routineExercises.length && routineExercises.length > 0 && (
+                    <div style={{ marginTop: '24px', textAlign: 'center' }}>
+                      <button
+                        onClick={handleCompleteRoutine}
+                        disabled={isClaimingNFT}
+                        style={{
+                          backgroundColor: '#22c55e',
+                          color: 'white',
+                          border: 'none',
+                          padding: '16px 32px',
+                          borderRadius: '12px',
+                          fontSize: '18px',
+                          fontWeight: '600',
+                          cursor: isClaimingNFT ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          margin: '0 auto',
+                          opacity: isClaimingNFT ? 0.6 : 1,
+                          transition: 'all 0.2s',
+                          boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isClaimingNFT) {
+                            e.currentTarget.style.backgroundColor = '#16a34a';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isClaimingNFT) {
+                            e.currentTarget.style.backgroundColor = '#22c55e';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                          }
+                        }}
+                      >
+                        {isClaimingNFT ? (
+                          <>
+                            <div style={{
+                              width: '20px',
+                              height: '20px',
+                              border: '2px solid transparent',
+                              borderTop: '2px solid white',
+                              borderRadius: '50%',
+                              animation: 'spin 1s linear infinite'
+                            }} />
+                            Claiming NFT Reward...
+                          </>
+                        ) : (
+                          <>
+                            🏆 Complete Routine & Claim NFT
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Exercise List */}
@@ -654,30 +967,38 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
                   display: 'grid',
                   gap: '16px'
                 }}>
-                  {routineExercises.map((exercise, index) => (
+                  {routineExercises.map((exercise, index) => {
+                    const exerciseName = exercise.exercises?.name || 'Unknown Exercise';
+                    const isCompleted = exerciseCompletions[exerciseName] || false;
+                    
+                    return (
                     <div
                       key={exercise.id}
                       onClick={() => setSelectedExercise(exercise)}
                       style={{
-                        border: '2px solid #e2e8f0',
+                        border: isCompleted ? '2px solid #16a34a' : '2px solid #e2e8f0',
                         borderRadius: '12px',
                         padding: '20px',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
-                        backgroundColor: '#fafbfc',
+                        backgroundColor: isCompleted ? '#f0fdf4' : '#fafbfc',
                         position: 'relative'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = '#3b82f6';
-                        e.currentTarget.style.backgroundColor = '#f0f9ff';
+                        if (!isCompleted) {
+                          e.currentTarget.style.borderColor = '#3b82f6';
+                          e.currentTarget.style.backgroundColor = '#f0f9ff';
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = '#e2e8f0';
-                        e.currentTarget.style.backgroundColor = '#fafbfc';
+                        if (!isCompleted) {
+                          e.currentTarget.style.borderColor = '#e2e8f0';
+                          e.currentTarget.style.backgroundColor = '#fafbfc';
+                        }
                       }}
                     >
                       {/* Completion Badge */}
-                      {exercise.completed && (
+                      {isCompleted && (
                         <div style={{
                           position: 'absolute',
                           top: '12px',
@@ -702,16 +1023,16 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
                           width: '40px',
                           height: '40px',
                           borderRadius: '50%',
-                          backgroundColor: exercise.completed ? '#16a34a' : '#1e40af',
+                          backgroundColor: isCompleted ? '#16a34a' : '#1e40af',
                           color: 'white',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: exercise.completed ? '20px' : '18px',
+                          fontSize: isCompleted ? '20px' : '18px',
                           fontWeight: '700',
                           flexShrink: 0
                         }}>
-                          {exercise.completed ? '✓' : exercise.order_in_routine}
+                          {isCompleted ? '✓' : exercise.order_in_routine}
                         </div>
 
                         {/* Exercise Details */}
@@ -832,7 +1153,8 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Back Button */}
@@ -884,7 +1206,13 @@ export default function PatientLayout({ initialPage = 'routines' }: PatientLayou
           }
         } : undefined;
         
-        return <VideoAnalyzer exerciseContext={exerciseContext} onBack={() => setSelectedExercise(null)} />;
+        return <VideoAnalyzer 
+          exerciseContext={exerciseContext} 
+          onBack={() => setSelectedExercise(null)}
+          onExerciseComplete={handleExerciseCompletion}
+          patientName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Champion'}
+          patientId={user?.id}
+        />;
       case 'routines':
         return (
           <div style={{

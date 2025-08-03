@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import React from 'react';
+import NFTClaim from './NFTClaim';
 
 interface AnalysisResponse {
   analysis?: string;
@@ -42,9 +43,12 @@ interface RoutineExercise {
 interface VideoAnalyzerProps {
   exerciseContext?: ExerciseContext;
   onBack?: () => void;
+  onExerciseComplete?: (exerciseName: string, passed: boolean, analysisResult?: any) => Promise<string | null>;
+  patientName?: string;
+  patientId?: string;
 }
 
-export default function VideoAnalyzer({ exerciseContext, onBack }: VideoAnalyzerProps) {
+export default function VideoAnalyzer({ exerciseContext, onBack, onExerciseComplete, patientName, patientId }: VideoAnalyzerProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -369,16 +373,35 @@ export default function VideoAnalyzer({ exerciseContext, onBack }: VideoAnalyzer
         
         // Extract pass/fail result from the analysis
         const analysisLower = data.analysis.toLowerCase();
-        if (analysisLower.includes('✅ pass') || analysisLower.includes('✅pass') || analysisLower.includes('exercise: pass')) {
+        const hasPassed = analysisLower.includes('✅ pass') || analysisLower.includes('✅pass') || analysisLower.includes('exercise: pass');
+        const hasFailed = analysisLower.includes('❌ fail') || analysisLower.includes('❌fail') || analysisLower.includes('exercise: fail');
+        
+        if (hasPassed) {
           setExerciseResult('pass');
-        } else if (analysisLower.includes('❌ fail') || analysisLower.includes('❌fail') || analysisLower.includes('exercise: fail')) {
+        } else if (hasFailed) {
           setExerciseResult('fail');
         } else {
           setExerciseResult(null);
         }
         
+        // Call the completion callback if provided
+        if (onExerciseComplete && exerciseContext?.name) {
+          // Extract analysis result data for database storage
+          const analysisResult = {
+            analysis_text: data.analysis,
+            form_score: hasPassed ? 85 : 65, // Use a good score for passed exercises
+            sets_completed: null, // Could be extracted from AI response if needed
+            reps_completed: null, // Could be extracted from AI response if needed
+            video_duration_seconds: null // Could be calculated from video file if needed
+          };
+          
+          // Call the completion handler and get the exercise completion ID
+          const completionId = await onExerciseComplete(exerciseContext.name, hasPassed, analysisResult);
+          console.log('✅ Exercise completion processed:', completionId);
+        }
+        
         // Mark current exercise as completed if we're in routine mode and passed
-        if (exerciseContext?.routine && exerciseContext.name && (analysisLower.includes('✅ pass') || analysisLower.includes('✅pass'))) {
+        if (exerciseContext?.routine && exerciseContext.name && hasPassed) {
           const exerciseKey = exerciseContext.name;
           setExerciseCompletions(prev => ({
             ...prev,
@@ -426,7 +449,6 @@ export default function VideoAnalyzer({ exerciseContext, onBack }: VideoAnalyzer
           exerciseType: exerciseContext.routine.title,
           bodyPart: 'Full Body Routine',
           difficulty: 'Intermediate',
-          completionScore: 95, // Good score for completing all exercises
           // Don't pass exerciseCompletionId - let the API create the chain
         }),
       });
@@ -629,15 +651,15 @@ export default function VideoAnalyzer({ exerciseContext, onBack }: VideoAnalyzer
         <div style={{
           display: 'flex',
           justifyContent: 'center',
-          marginBottom: '30px',
+          marginBottom: '24px',
           gap: '12px'
         }}>
           <button
             onClick={() => !showCamera && !cameraLoading && startCamera()}
             disabled={showCamera || isRecording || cameraLoading}
             style={{
-              padding: '12px 24px',
-              fontSize: '16px',
+              padding: '10px 20px',
+              fontSize: '14px',
               fontWeight: '600',
               background: showCamera ? '#2563eb' : cameraLoading ? '#94a3b8' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
               color: 'white',
@@ -846,11 +868,11 @@ export default function VideoAnalyzer({ exerciseContext, onBack }: VideoAnalyzer
           <div>
             <div style={{
               textAlign: 'center',
-              marginBottom: '20px'
+              marginBottom: '16px'
             }}>
               <h3 style={{
                 color: '#4a5568',
-                fontSize: '18px',
+                fontSize: '16px',
                 fontWeight: '600',
                 margin: '0',
                 display: 'flex',
@@ -866,16 +888,16 @@ export default function VideoAnalyzer({ exerciseContext, onBack }: VideoAnalyzer
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               style={{
-                border: selectedFile ? '3px solid #667eea' : '3px dashed #cbd5e0',
-                borderRadius: '16px',
-                padding: '60px 40px',
+                border: selectedFile ? '2px solid #667eea' : '2px dashed #cbd5e0',
+                borderRadius: '12px',
+                padding: '24px 20px',
                 textAlign: 'center',
-                marginBottom: '30px',
+                marginBottom: '24px',
                 cursor: 'pointer',
                 backgroundColor: selectedFile ? 'rgba(102, 126, 234, 0.05)' : '#f7fafc',
                 transition: 'all 0.3s ease',
-                position: 'relative',
-                overflow: 'hidden'
+                maxWidth: '350px',
+                margin: '0 auto 24px'
               }}
               onClick={() => fileInputRef.current?.click()}
               onMouseEnter={(e) => {
@@ -900,8 +922,8 @@ export default function VideoAnalyzer({ exerciseContext, onBack }: VideoAnalyzer
               />
               
               <div style={{
-                fontSize: '4rem',
-                marginBottom: '20px',
+                fontSize: '2rem',
+                marginBottom: '8px',
                 opacity: 0.7
               }}>
                 {selectedFile ? '✅' : '📹'}
@@ -911,16 +933,17 @@ export default function VideoAnalyzer({ exerciseContext, onBack }: VideoAnalyzer
                 <div>
                   <p style={{ 
                     color: '#667eea',
-                    fontSize: '18px',
+                    fontSize: '14px',
                     fontWeight: '600',
-                    margin: '0 0 8px 0'
+                    margin: '0 0 4px 0'
                   }}>
                     ✨ Video Selected!
                   </p>
                   <p style={{ 
                     color: '#4a5568',
-                    fontSize: '16px',
-                    margin: '0'
+                    fontSize: '12px',
+                    margin: '0',
+                    wordBreak: 'break-all'
                   }}>
                     {selectedFile.name}
                   </p>
@@ -929,30 +952,30 @@ export default function VideoAnalyzer({ exerciseContext, onBack }: VideoAnalyzer
                 <div>
                   <p style={{ 
                     color: '#4a5568',
-                    fontSize: '20px',
+                    fontSize: '14px',
                     fontWeight: '600',
-                    margin: '0 0 12px 0'
+                    margin: '0 0 6px 0'
                   }}>
-                    Drop your exercise video here
+                    Drop your video here
                   </p>
                   <p style={{ 
                     color: '#718096',
-                    fontSize: '16px',
-                    margin: '0 0 20px 0'
+                    fontSize: '12px',
+                    margin: '0 0 8px 0'
                   }}>
-                    or click to browse files
+                    or click to browse
                   </p>
                   <div style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '8px',
+                    gap: '4px',
                     backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    padding: '8px 16px',
-                    borderRadius: '20px',
-                    fontSize: '14px',
+                    padding: '4px 8px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
                     color: '#667eea'
                   }}>
-                    📁 Supports: MP4, MOV, AVI, WEBM
+                    📁 MP4, MOV, AVI, WEBM
                   </div>
                 </div>
               )}
@@ -991,7 +1014,7 @@ export default function VideoAnalyzer({ exerciseContext, onBack }: VideoAnalyzer
               controls
               style={{
                 width: '100%',
-                maxWidth: '500px',
+                maxWidth: '400px',
                 height: 'auto',
                 display: 'block',
                 margin: '0 auto'

@@ -10,11 +10,9 @@ async function testGenerateAndMint() {
   
   const testData = {
     walletAddress: '0x009A450db4e92856a9Cb8Ef944fE070F21E06794',
-    exerciseType: 'Push-ups',
-    completionScore: 92,
-    difficulty: 'Intermediate',
-    bodyPart: 'Chest and Arms',
-    playerName: 'Alex'
+    exerciseType: 'Wrist Rotations',
+    difficulty: 'Easy',
+    bodyPart: 'Wrist and Forearm'
   };
   
   console.log('📋 Test data:', testData);

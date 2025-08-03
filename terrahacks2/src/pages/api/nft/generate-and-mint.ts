@@ -21,7 +21,6 @@ const supabaseAdmin = createClient(
 interface MintRequest {
   walletAddress: string;
   exerciseType: string;
-  completionScore: number;
   difficulty: string;
   bodyPart: string;
   playerName?: string;
@@ -38,7 +37,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { 
       walletAddress, 
       exerciseType, 
-      completionScore, 
       difficulty, 
       bodyPart,
       playerName = "Champion",
@@ -47,12 +45,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }: MintRequest = req.body;
 
     console.log('🎨 Starting NFT generation and minting process...');
-    console.log('📋 Request details:', { exerciseType, completionScore, difficulty, bodyPart, walletAddress, patientId, exerciseCompletionId });
+    console.log('📋 Request details:', { exerciseType, difficulty, bodyPart, walletAddress, patientId, exerciseCompletionId });
 
     // Validate required fields
-    if (!walletAddress || !exerciseType || completionScore === undefined) {
+    if (!walletAddress || !exerciseType || !difficulty || !bodyPart) {
       return res.status(400).json({ 
-        error: 'Missing required fields: walletAddress, exerciseType, completionScore' 
+        error: 'Missing required fields: walletAddress, exerciseType, difficulty, bodyPart' 
       });
     }
 
@@ -215,7 +213,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               routine_exercise_id: routineExerciseId,
               patient_id: finalPatientId,
               completion_status: 'completed',
-              form_score: completionScore,
+              form_score: 85, // Default score for NFT completion
               nft_minted: false,
               actual_sets: 3,
               actual_reps: 10
@@ -243,7 +241,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Step 1: Generate image prompt based on exercise
-    const imagePrompt = generateImagePrompt(exerciseType, completionScore, difficulty, bodyPart, playerName);
+    const imagePrompt = generateImagePrompt(exerciseType, difficulty, bodyPart, playerName);
     console.log('💡 Generated image prompt:', imagePrompt);
 
     // Step 2: Generate image with Gemini
@@ -253,8 +251,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Step 3: Create NFT metadata
     const nftMetadata = {
-      name: `${playerName}'s ${exerciseType} Achievement`,
-      description: `Congratulations! ${playerName} completed ${exerciseType} exercises with a score of ${completionScore}%. This NFT celebrates their dedication to rehabilitation and fitness.`,
+      name: `Underground ${exerciseType} Achievement`,
+      description: `🏆 This exclusive Mole Fitness NFT celebrates completing ${exerciseType} exercises with dedication to rehabilitation and fitness from the underground gym! This NFT represents perseverance, dedication, and the underground spirit of never giving up on your health journey.`,
       image: imageUrl,
       attributes: [
         {
@@ -262,24 +260,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           value: exerciseType
         },
         {
-          trait_type: "Completion Score",
-          value: completionScore.toString()
-        },
-        {
-          trait_type: "Difficulty",
-          value: difficulty
-        },
-        {
           trait_type: "Target Body Part",
           value: bodyPart
+        },
+        {
+          trait_type: "Difficulty Level",
+          value: difficulty
         },
         {
           trait_type: "Achievement Date",
           value: new Date().toISOString().split('T')[0]
         },
         {
-          trait_type: "Rarity",
-          value: getRarity(completionScore)
+          trait_type: "Underground Theme",
+          value: "Mole Fitness Coach"
+        },
+        {
+          trait_type: "Workout Category",
+          value: bodyPart.toLowerCase().replace(' ', '_')
+        },
+        {
+          trait_type: "Completion Status",
+          value: "Completed Successfully"
+        },
+        {
+          trait_type: "NFT Series",
+          value: "Underground Fitness Collection"
         }
       ]
     };
@@ -299,7 +305,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       walletAddress,
       transactionHash: mintResult.transactionHash,
       exerciseType,
-      completionScore,
       difficulty,
       bodyPart
     });
@@ -340,43 +345,95 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-function generateImagePrompt(exerciseType: string, score: number, difficulty: string, bodyPart: string, playerName: string): string {
-  const scoreLevel = score >= 90 ? "perfect" : score >= 80 ? "excellent" : score >= 70 ? "good" : "decent";
+function generateImagePrompt(exerciseType: string, difficulty: string, bodyPart: string, playerName: string): string {
+  // Random cool environments for the mole
+  const environments = [
+    "an underground futuristic gym with neon lighting and high-tech equipment",
+    "a cozy underground cave gym with wooden equipment and warm lighting", 
+    "an outdoor mountain burrow with natural rock formations and sunrise",
+    "an underground laboratory fitness center with scientific equipment",
+    "a magical underground garden gym with glowing plants and crystals",
+    "an underground steampunk workshop with brass equipment and gears",
+    "a modern underground fitness studio with mirrors and sleek design",
+    "an underground beach cave with sandy floors and ocean views"
+  ];
   
-  const basePrompt = `Create a vibrant, cartoon-style digital art illustration celebrating a fitness achievement. `;
+  // Random cool outfits for the mole
+  const outfits = [
+    "wearing trendy athletic wear with a backwards cap and wristbands",
+    "sporting a vintage tracksuit with retro sneakers",
+    "dressed in futuristic workout gear with LED accents",
+    "wearing a cute yoga outfit with a headband",
+    "sporting professional athletic gear like a coach",
+    "dressed in colorful workout clothes with fun patterns",
+    "wearing a superhero-inspired fitness costume",
+    "sporting outdoor adventure gear with a utility belt"
+  ];
+  
+  const randomEnvironment = environments[Math.floor(Math.random() * environments.length)];
+  const randomOutfit = outfits[Math.floor(Math.random() * outfits.length)];
+  
+  const basePrompt = `Create a vibrant, high-quality NFT artwork featuring an adorable anthropomorphic mole character ${randomOutfit}. The scene is set in ${randomEnvironment}. `;
   
   const exerciseSpecific = getExerciseSpecificPrompt(exerciseType, bodyPart);
   
-  const achievementLevel = `The character should look ${scoreLevel === "perfect" ? "triumphant and glowing with golden effects" : 
-    scoreLevel === "excellent" ? "proud and energetic with sparkle effects" : 
-    scoreLevel === "good" ? "happy and confident" : "determined and motivated"}. `;
+  const achievementLevel = `The mole character should look proud and energetic with rainbow sparkle effects and a big smile, celebrating the completion of ${exerciseType}. `;
   
-  const styleGuide = `Art style: Bright, cheerful cartoon with clean lines, bold colors (blues, greens, oranges), and a modern flat design aesthetic. `;
+  const styleGuide = `Art style: Professional NFT quality, bright and vibrant cartoon with clean lines, bold colors (earth tones like browns and greens mixed with vibrant blues, oranges, and purples), modern digital art aesthetic with excellent lighting and shadows. `;
   
-  const celebrationElements = `Include celebration elements like stars, confetti, or achievement badges. `;
+  const moleFeatures = `The mole should have distinctive cute features: fluffy brown fur, bright pink nose, sparkling dark eyes, tiny expressive paws, and a friendly personality that shines through. `;
   
-  const background = `Background should be a subtle gradient or simple pattern that doesn't distract from the main character. `;
+  const celebrationElements = `Include celebration elements like floating stars, confetti particles, achievement badges, or magical sparkles around the mole. `;
   
-  const textElement = `Include a small text element that says "${playerName}'s Achievement" in a fun, readable font. `;
-  
-  return basePrompt + exerciseSpecific + achievementLevel + styleGuide + celebrationElements + background + textElement;
+  return basePrompt + exerciseSpecific + achievementLevel + styleGuide + moleFeatures + celebrationElements;
 }
 
 function getExerciseSpecificPrompt(exerciseType: string, bodyPart: string): string {
   const exercise = exerciseType.toLowerCase();
   
-  if (exercise.includes('push') || exercise.includes('press')) {
-    return `Show a cartoon character doing push-ups with proper form, emphasizing strong arms and core. `;
-  } else if (exercise.includes('squat')) {
-    return `Show a cartoon character in a squat position with strong, defined legs and good posture. `;
-  } else if (exercise.includes('plank')) {
-    return `Show a cartoon character holding a plank position with focus on core strength and stability. `;
-  } else if (exercise.includes('stretch') || exercise.includes('flexibility')) {
-    return `Show a cartoon character in a graceful stretching pose with flowing movements. `;
-  } else if (exercise.includes('cardio') || exercise.includes('run')) {
-    return `Show a cartoon character in motion with energy lines showing movement and cardio activity. `;
-  } else {
-    return `Show a cartoon character performing ${exerciseType} exercises with focus on the ${bodyPart} area. `;
+  // Wrist and hand exercises
+  if (exercise.includes('wrist') || exercise.includes('hand') || exercise.includes('finger')) {
+    return `The mole is actively performing wrist exercises - rotating tiny dumbbells with its paws, doing wrist flexions and extensions, or squeezing a small exercise ball. Focus on the mole's paws and wrist movements with clear detail showing the specific wrist exercise motion. `;
+  }
+  // Push-ups and pressing movements
+  else if (exercise.includes('push') || exercise.includes('press')) {
+    return `The mole is in the middle of doing push-ups with perfect form - tiny paws planted firmly on the ground, body in a straight plank position, showing the exact moment of pushing up or holding the position. The mole's arms and chest muscles should be clearly engaged. `;
+  }
+  // Squats and leg exercises
+  else if (exercise.includes('squat') || exercise.includes('leg') || exercise.includes('thigh')) {
+    return `The mole is performing a deep squat with excellent form - knees bent, bottom low, tiny paws together in front for balance. The mole's leg muscles should be clearly defined and engaged, showing strength and proper squat technique. `;
+  }
+  // Plank and core exercises
+  else if (exercise.includes('plank') || exercise.includes('core') || exercise.includes('ab')) {
+    return `The mole is holding a perfect plank position - body straight as a board, tiny paws supporting its weight, core engaged and strong. Show the mole's determination and core strength with visible muscle definition and steady positioning. `;
+  }
+  // Stretching and flexibility
+  else if (exercise.includes('stretch') || exercise.includes('flexibility') || exercise.includes('yoga')) {
+    return `The mole is gracefully performing a stretching pose - perhaps touching its toes, doing a side stretch, or in a yoga-inspired position. The mole should look serene and flexible, with flowing movements and excellent form. `;
+  }
+  // Cardio and running
+  else if (exercise.includes('cardio') || exercise.includes('run') || exercise.includes('jog')) {
+    return `The mole is in dynamic motion - running or jogging with energy lines showing movement, paws moving in rhythm, maybe on a treadmill or running through tunnels. Show the mole's cardiovascular effort with motion blur and dynamic energy. `;
+  }
+  // Shoulder exercises
+  else if (exercise.includes('shoulder') || exercise.includes('arm raise')) {
+    return `The mole is performing shoulder exercises - raising tiny weights overhead, doing lateral arm raises, or shoulder rotations. Focus on the mole's shoulder and arm movements with clear demonstration of the specific shoulder exercise. `;
+  }
+  // Back exercises
+  else if (exercise.includes('back') || exercise.includes('row') || exercise.includes('pull')) {
+    return `The mole is doing back exercises - performing rowing motions, pull-ups on a tiny bar, or back extensions. Show the mole's back muscles engaged and the specific pulling or rowing movement being performed. `;
+  }
+  // Neck exercises
+  else if (exercise.includes('neck') || exercise.includes('cervical')) {
+    return `The mole is carefully performing neck exercises - gentle neck rotations, side-to-side movements, or neck stretches. The mole should look focused and gentle with the neck movements, showing proper form and care. `;
+  }
+  // Balance exercises
+  else if (exercise.includes('balance') || exercise.includes('stability')) {
+    return `The mole is demonstrating excellent balance - standing on one paw, using a balance board, or performing a stability exercise. Show the mole's concentration and steady positioning with arms out for balance. `;
+  }
+  // Generic exercise fallback
+  else {
+    return `The mole is actively performing ${exerciseType} exercises with focus on the ${bodyPart} area. The mole should be clearly demonstrating the specific exercise movement with proper form, showing engagement of the target muscle group and athletic ability. `;
   }
 }
 
@@ -411,10 +468,11 @@ async function generateImageWithGemini(prompt: string): Promise<string> {
     });
 
     // Look for generated image in the response
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        const imageData = part.inlineData.data;
-        const buffer = Buffer.from(imageData, "base64");
+    if (response.candidates && response.candidates[0] && response.candidates[0].content && response.candidates[0].content.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData && part.inlineData.data) {
+          const imageData = part.inlineData.data;
+          const buffer = Buffer.from(imageData, "base64");
         
         // Save the image to public directory
         const timestamp = Date.now();
@@ -436,6 +494,7 @@ async function generateImageWithGemini(prompt: string): Promise<string> {
         console.log('🔗 URL:', imageUrl);
         
         return imageUrl;
+        }
       }
     }
     
@@ -519,7 +578,6 @@ interface SaveNFTParams {
   walletAddress: string;
   transactionHash: string;
   exerciseType: string;
-  completionScore: number;
   difficulty: string;
   bodyPart: string;
 }
@@ -535,7 +593,6 @@ async function saveNFTToDatabase(params: SaveNFTParams) {
       walletAddress,
       transactionHash,
       exerciseType,
-      completionScore,
       difficulty,
       bodyPart
     } = params;
@@ -554,10 +611,10 @@ async function saveNFTToDatabase(params: SaveNFTParams) {
       transaction_hash: transactionHash,
       block_number: null, // Not available in current receipt
       exercise_type: exerciseType,
-      completion_score: completionScore,
+      completion_score: 85, // Default completion score
       difficulty_level: difficulty,
       body_part: bodyPart,
-      rarity: getRarity(completionScore),
+      rarity: "Epic", // Default rarity since no score
       minted: true,
       minted_at: new Date().toISOString(),
       ai_generated: true,

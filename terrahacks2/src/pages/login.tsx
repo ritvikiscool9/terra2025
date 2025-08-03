@@ -148,29 +148,6 @@ export default function Login() {
                   <span style={{ fontSize: '24px' }}>🩺</span>
                   I'm a Doctor
                 </button>
-                <button
-                  onClick={() => router.push('/signup/doctor')}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: 'transparent',
-                    border: '1px solid #1e40af',
-                    borderRadius: '6px',
-                    color: '#1e40af',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#1e40af';
-                    e.currentTarget.style.color = 'white';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#1e40af';
-                  }}
-                >
-                  Create Doctor Account
-                </button>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -204,29 +181,6 @@ export default function Login() {
                 >
                   <span style={{ fontSize: '24px' }}>👤</span>
                   I'm a Patient
-                </button>
-                <button
-                  onClick={() => router.push('/signup/patient')}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: 'transparent',
-                    border: '1px solid #059669',
-                    borderRadius: '6px',
-                    color: '#059669',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#059669';
-                    e.currentTarget.style.color = 'white';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#059669';
-                  }}
-                >
-                  Create Patient Account
                 </button>
               </div>
             </div>

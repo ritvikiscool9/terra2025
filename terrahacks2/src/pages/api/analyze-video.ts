@@ -87,20 +87,50 @@ export default async function handler(
 
     // Detect MIME type if not provided
     const detectedMimeType = mimeType || getMimeTypeFromBase64(videoBase64);
-    console.log('=== VIDEO ANALYSIS REQUEST ===');
+    
+    // Convert base64 to buffer
+    const videoBuffer = Buffer.from(videoBase64, 'base64');
+    
+    console.log('===============================');
+    console.log('🎬 VIDEO ANALYSIS REQUEST');
+    console.log('Video size (bytes):', videoBuffer.length);
+    console.log('Video size (MB):', (videoBuffer.length / 1024 / 1024).toFixed(2));
     console.log('Detected MIME type:', detectedMimeType);
     console.log('Exercise context received:', JSON.stringify(exerciseContext, null, 2));
     console.log('Exercise name:', exerciseContext?.name || 'NO EXERCISE NAME PROVIDED');
+    console.log('Target parameters:');
+    if (exerciseContext?.sets) console.log('  - Sets:', exerciseContext.sets);
+    if (exerciseContext?.reps) console.log('  - Reps:', exerciseContext.reps);
+    if (exerciseContext?.duration_seconds) console.log('  - Duration:', exerciseContext.duration_seconds, 'seconds');
+    console.log('🚨 AI BIAS CHECK: The AI should count reps objectively, NOT be influenced by these targets!');
     console.log('===============================');
-
-    // Convert base64 to buffer
-    const videoBuffer = Buffer.from(videoBase64, 'base64');
 
     // Initialize Gemini AI
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Use gemini-1.5-flash for video understanding (lighter model with higher quotas)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Try gemini-2.0-flash-exp first for better video understanding and rep counting
+    let model;
+    try {
+      model = genAI.getGenerativeModel({ 
+        model: 'gemini-2.0-flash-exp',
+        generationConfig: {
+          temperature: 0.3, // Lower temperature for more consistent analysis
+          topP: 0.8,
+          topK: 40,
+        }
+      });
+      console.log('Using gemini-2.0-flash-exp model');
+    } catch (error) {
+      console.log('Failed to initialize gemini-2.0-flash-exp, falling back to gemini-1.5-flash');
+      model = genAI.getGenerativeModel({ 
+        model: 'gemini-1.5-flash',
+        generationConfig: {
+          temperature: 0.3,
+          topP: 0.8,
+          topK: 40,
+        }
+      });
+    }
 
     // Create context-aware prompt
     let contextPrompt = '';
@@ -122,7 +152,8 @@ ${exerciseContext.sets ? `Target Sets: ${exerciseContext.sets}` : ''}
 ${exerciseContext.reps ? `Target Reps: ${exerciseContext.reps}` : ''}
 ${exerciseContext.duration_seconds ? `Target Duration: ${exerciseContext.duration_seconds} seconds` : ''}
 ${routineInfo}
-Please analyze the video specifically for this exercise. Pay attention to form, technique, and adherence to the prescribed parameters.
+
+⚠️ IMPORTANT: Count reps objectively based on what you see, NOT influenced by the target numbers above!
 
 `;
     }
@@ -136,48 +167,66 @@ Please analyze the video specifically for this exercise. Pay attention to form, 
         }
       },
       {
-        text: `${contextPrompt}As a physical therapy AI assistant, analyze this exercise video and provide a clear pass/fail evaluation based on the prescribed exercise parameters.
+        text: `${contextPrompt}As a supportive physical therapy AI assistant, analyze this exercise video objectively and provide encouraging but honest feedback.
 
 ${exerciseContext?.name ? `The patient was supposed to perform: "${exerciseContext.name}"
 
-CRITICAL INSTRUCTIONS:
-1. First, identify what exercise they actually performed
-2. Evaluate if they met the prescribed parameters (sets, reps, duration, form)
-3. Provide a clear PASS or FAIL determination
-4. Give specific feedback based on routine requirements
+CRITICAL ANALYSIS INSTRUCTIONS:
+1. Watch the COMPLETE video from start to finish WITHOUT bias toward the target numbers
+2. Count repetitions OBJECTIVELY - ignore the target rep count while counting
+3. A repetition = one complete movement cycle (e.g., up-down for squats, rotation cycle for pronation/supination)
+4. Be GENEROUS with form assessment - focus on effort and safety rather than perfect technique
+5. Only fail if there are serious safety concerns or they did completely wrong exercise
+
+COUNTING GUIDELINES:
+- Count EVERY visible repetition attempt, even if form isn't perfect
+- For pronation/supination: Count each complete rotation cycle (palm up to palm down and back)
+- For squats/lunges: Count each complete up-down movement
+- Be generous with partial reps if they show good effort
+- If you're unsure between two numbers, choose the higher count
 
 Please provide feedback in this EXACT format:
 
 **🎯 Exercise Evaluation: [✅ PASS or ❌ FAIL]**
 
-**Exercise Performed:**
-[State what exercise they actually did - if different from expected, note this clearly]
+**Video Analysis:**
+- Total Video Duration: [X] seconds
+- Exercise Performed: [State what exercise they did]
+- Movement Pattern: [Describe the movement objectively]
 
-**Parameter Assessment:**
-${exerciseContext.sets ? `- Sets Required: ${exerciseContext.sets} | Sets Observed: [count from video]` : ''}
-${exerciseContext.reps ? `- Reps Required: ${exerciseContext.reps} | Reps Observed: [count from video]` : ''}
-${exerciseContext.duration_seconds ? `- Duration Required: ${exerciseContext.duration_seconds}s | Duration Observed: [measure from video]` : ''}
-- Form Quality: [Rate as Excellent/Good/Needs Improvement/Poor]
+**Objective Rep Count:**
+${exerciseContext.reps ? `- Target Reps: ${exerciseContext.reps} per set
+- Actual Reps Counted: [Count every visible repetition attempt]
+- Rep Assessment: [Did they get close to the target? Be generous]` : ''}
+${exerciseContext.sets ? `- Target Sets: ${exerciseContext.sets}
+- Sets Completed: [Count distinct groups]` : ''}
+${exerciseContext.duration_seconds ? `- Target Duration: ${exerciseContext.duration_seconds} seconds
+- Actual Duration: [Measure from video]` : ''}
 
-**Specific Feedback:**
-- [Point out specific form issues or successes]
-- [Note if they completed the right number of reps/sets/duration]
-- [Mention any safety concerns]
+**Form Assessment:**
+- Safety: [Safe/Needs attention - focus on injury risk]
+- Effort Level: [Excellent/Good/Moderate - rate their effort]
+- Range of Motion: [Full/Adequate/Limited - be generous]
+- Overall Technique: [Good job/Needs minor adjustments/Needs work]
 
-**Result Determination:**
+**Pass/Fail Criteria:**
 ${exerciseContext.sets || exerciseContext.reps || exerciseContext.duration_seconds ? 
-`To PASS this exercise, you must:
-${exerciseContext.sets ? `✓ Complete ${exerciseContext.sets} sets` : ''}
-${exerciseContext.reps ? `✓ Perform ${exerciseContext.reps} reps per set` : ''}
-${exerciseContext.duration_seconds ? `✓ Maintain exercise for ${exerciseContext.duration_seconds} seconds` : ''}
-✓ Demonstrate proper form and technique
+`To PASS this exercise:
+${exerciseContext.reps ? `✓ Attempt at least 80% of target reps (${Math.ceil((exerciseContext.reps || 0) * 0.8)}+ reps for ${exerciseContext.reps} target)` : ''}
+${exerciseContext.sets ? `✓ Complete the required sets` : ''}
+${exerciseContext.duration_seconds ? `✓ Maintain exercise for reasonable duration` : ''}
+✓ Demonstrate safe form (doesn't need to be perfect!)
+
+**EVALUATION RESULT:**
+${exerciseContext.reps ? `Rep Count: [Did they attempt ${Math.ceil((exerciseContext.reps || 0) * 0.8)}+ reps? Be generous!]` : ''}
+Form & Safety: [Was it safe and showed good effort?]` :
+'To PASS: Show good effort and safe technique'}
 
 **Final Result: [✅ PASS or ❌ FAIL]**
-[Explain why they passed or failed based on the requirements above]` :
-'**Final Result: [✅ PASS or ❌ FAIL]**\n[Explain the result based on form and technique]'}
+[Be encouraging! Only fail for serious safety issues or completely wrong exercise. If they made a good effort and were close to targets, that's a PASS!]
 
-**Next Steps:**
-${exerciseContext.routine ? `[If PASS: "Great job! You can proceed to the next exercise in your routine." If FAIL: "Please review the feedback and try again before moving to the next exercise."]` : '[Guidance for improvement or next actions]'}` : 
+**Encouraging Feedback:**
+[Always start with something positive! Then give constructive suggestions if needed.]` :   
 
 `Please analyze this exercise video and provide a pass/fail evaluation:
 
@@ -241,7 +290,14 @@ IMPORTANT RULES:
       return res.status(500).json({ error: 'No analysis generated' });
     }
 
-    console.log('Analysis completed successfully');
+    console.log('===============================');
+    console.log('📊 ANALYSIS COMPLETED');
+    console.log('Analysis length:', analysis.length, 'characters');
+    console.log('Contains PASS:', analysis.includes('✅ PASS') || analysis.includes('✅PASS'));
+    console.log('Contains FAIL:', analysis.includes('❌ FAIL') || analysis.includes('❌FAIL'));
+    console.log('First 500 chars of analysis:');
+    console.log(analysis.substring(0, 500));
+    console.log('===============================');
 
     return res.status(200).json({ analysis });
 

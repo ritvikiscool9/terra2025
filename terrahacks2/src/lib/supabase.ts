@@ -95,20 +95,16 @@ export interface RoutineExercise {
 
 export interface ExerciseCompletion {
   id: string
-  routine_exercise_id: string
   patient_id: string
+  routine_id: string
+  exercise_id: string
+  routine_exercise_id: string
+  completed_at: string
+  analysis_feedback?: string
+  pass_status: boolean
   video_url?: string
-  ai_analysis_result?: any
-  form_score?: number
-  completion_status: 'completed' | 'needs_improvement' | 'failed'
-  actual_sets?: number
-  actual_reps?: number
-  actual_duration_seconds?: number
-  completion_date: string
-  doctor_feedback?: string
-  nft_minted: boolean
-  nft_token_id?: string
   created_at: string
+  updated_at: string
 }
 
 export interface NFT {
