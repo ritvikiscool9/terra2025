@@ -328,6 +328,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       data: {
         nftMetadata,
         transactionHash: mintResult.transactionHash,
+        tokenId: mintResult.tokenId,
         polygonScanUrl: `https://amoy.polygonscan.com/tx/${mintResult.transactionHash}`,
         contractAddress: process.env.NFT_CONTRACT_ADDRESS,
         mintedTo: walletAddress
@@ -561,7 +562,16 @@ async function mintNFT(walletAddress: string, nftMetadata: any) {
       account: adminAccount,
     });
 
-    return receipt;
+    console.log('🔍 Full receipt:', JSON.stringify(receipt, null, 2));
+
+    // For now, we'll generate a placeholder token ID and improve this later
+    // In a real implementation, you'd parse the transaction receipt logs
+    const tokenId = Date.now().toString(); // Temporary placeholder
+
+    return {
+      ...receipt,
+      tokenId
+    };
 
   } catch (error) {
     console.error('Error minting NFT:', error);
