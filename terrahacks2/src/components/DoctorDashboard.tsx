@@ -2355,6 +2355,9 @@ export default function DoctorDashboard() {
             </div>
 
             <div style={{ padding: '24px' }}>
+              {/* Contact Information */}
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{
                   color: '#374151',
                   fontSize: '18px',
                   fontWeight: '600',
@@ -2645,7 +2648,66 @@ export default function DoctorDashboard() {
                   Update Patient
                 </button>
               </div>
-=======
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NFT Details Modal */}
+      {selectedNFT && (
+        <div style={{
+          position: 'fixed',
+          top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '24px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h2 style={{
+                color: '#1e40af',
+                fontSize: '24px',
+                fontWeight: '700',
+                margin: '0'
+              }}>
+                NFT Details
+              </h2>
+              <button
+                onClick={() => setSelectedNFT(null)}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '24px' }}>
               <div style={{ display: 'flex', gap: '24px', marginBottom: '24px' }}>
                 {/* NFT Image */}
                 <div style={{ flex: '0 0 200px' }}>
@@ -2778,7 +2840,6 @@ export default function DoctorDashboard() {
                   </div>
                 </div>
               </div>
->>>>>>> 16d72a3bf5d2585867dd4b2efb351ffc52fe7cbb
             </div>
           </div>
         </div>
