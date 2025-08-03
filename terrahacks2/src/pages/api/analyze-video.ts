@@ -17,6 +17,11 @@ interface RequestBody {
     sets?: number;
     reps?: number;
     duration_seconds?: number;
+    routine?: {
+      title: string;
+      description?: string;
+      exercises?: any[];
+    };
   };
 }
 
@@ -100,6 +105,13 @@ export default async function handler(
     // Create context-aware prompt
     let contextPrompt = '';
     if (exerciseContext?.name) {
+      const routineInfo = exerciseContext.routine ? 
+        `\n**ROUTINE CONTEXT:**
+This exercise is part of: "${exerciseContext.routine.title}"
+${exerciseContext.routine.description ? `Routine Goal: ${exerciseContext.routine.description}` : ''}
+Patient is working through a structured rehabilitation program.
+` : '';
+
       contextPrompt = `**EXERCISE CONTEXT:**
 The user is performing: "${exerciseContext.name}"
 ${exerciseContext.description ? `Description: ${exerciseContext.description}` : ''}
@@ -109,7 +121,7 @@ ${exerciseContext.difficulty_level ? `Difficulty Level: ${exerciseContext.diffic
 ${exerciseContext.sets ? `Target Sets: ${exerciseContext.sets}` : ''}
 ${exerciseContext.reps ? `Target Reps: ${exerciseContext.reps}` : ''}
 ${exerciseContext.duration_seconds ? `Target Duration: ${exerciseContext.duration_seconds} seconds` : ''}
-
+${routineInfo}
 Please analyze the video specifically for this exercise. Pay attention to form, technique, and adherence to the prescribed parameters.
 
 `;
@@ -124,57 +136,73 @@ Please analyze the video specifically for this exercise. Pay attention to form, 
         }
       },
       {
-        text: `${contextPrompt}As a supportive physical therapy assistant, analyze this exercise video and provide encouraging, constructive feedback. Focus on being helpful and motivational while giving practical advice.
+        text: `${contextPrompt}As a physical therapy AI assistant, analyze this exercise video and provide a clear pass/fail evaluation based on the prescribed exercise parameters.
 
 ${exerciseContext?.name ? `The patient was supposed to perform: "${exerciseContext.name}"
 
-IMPORTANT: First, carefully observe what exercise the person is actually performing in the video. If they are doing a DIFFERENT exercise than expected, address this immediately in your response.
+CRITICAL INSTRUCTIONS:
+1. First, identify what exercise they actually performed
+2. Evaluate if they met the prescribed parameters (sets, reps, duration, form)
+3. Provide a clear PASS or FAIL determination
+4. Give specific feedback based on routine requirements
 
-Please provide feedback in this format:
+Please provide feedback in this EXACT format:
 
-**🎯 Exercise Analysis:**
-[First identify what exercise they actually performed. If it matches the expected exercise, congratulate them. If it's different, gently point this out]
+**🎯 Exercise Evaluation: [✅ PASS or ❌ FAIL]**
 
-**What I observed:**
-- [Acknowledge their effort and what they did in the video]
-- [If they did the wrong exercise, explain what they did vs what was expected]
+**Exercise Performed:**
+[State what exercise they actually did - if different from expected, note this clearly]
 
-**Form feedback:**
-- [If correct exercise: provide form feedback]
-- [If wrong exercise: suggest how to do the correct exercise]
+**Parameter Assessment:**
+${exerciseContext.sets ? `- Sets Required: ${exerciseContext.sets} | Sets Observed: [count from video]` : ''}
+${exerciseContext.reps ? `- Reps Required: ${exerciseContext.reps} | Reps Observed: [count from video]` : ''}
+${exerciseContext.duration_seconds ? `- Duration Required: ${exerciseContext.duration_seconds}s | Duration Observed: [measure from video]` : ''}
+- Form Quality: [Rate as Excellent/Good/Needs Improvement/Poor]
 
-**Next steps:**
-- [Practical guidance for improvement]
-- [Encouragement to try the correct exercise if needed]
+**Specific Feedback:**
+- [Point out specific form issues or successes]
+- [Note if they completed the right number of reps/sets/duration]
+- [Mention any safety concerns]
 
-**Keep it up!**
-[End with motivation]` : 
+**Result Determination:**
+${exerciseContext.sets || exerciseContext.reps || exerciseContext.duration_seconds ? 
+`To PASS this exercise, you must:
+${exerciseContext.sets ? `✓ Complete ${exerciseContext.sets} sets` : ''}
+${exerciseContext.reps ? `✓ Perform ${exerciseContext.reps} reps per set` : ''}
+${exerciseContext.duration_seconds ? `✓ Maintain exercise for ${exerciseContext.duration_seconds} seconds` : ''}
+✓ Demonstrate proper form and technique
 
-`Please analyze this exercise video and provide supportive feedback:
+**Final Result: [✅ PASS or ❌ FAIL]**
+[Explain why they passed or failed based on the requirements above]` :
+'**Final Result: [✅ PASS or ❌ FAIL]**\n[Explain the result based on form and technique]'}
 
-**🎯 Exercise Analysis:**
-[Identify what exercise they performed]
+**Next Steps:**
+${exerciseContext.routine ? `[If PASS: "Great job! You can proceed to the next exercise in your routine." If FAIL: "Please review the feedback and try again before moving to the next exercise."]` : '[Guidance for improvement or next actions]'}` : 
 
-**What I observed:**
-- [Acknowledge their effort and technique]
+`Please analyze this exercise video and provide a pass/fail evaluation:
 
-**Form feedback:**
-- [Provide constructive feedback about their technique]
+**🎯 Exercise Evaluation: [✅ PASS or ❌ FAIL]**
 
-**Suggestions for improvement:**
-- [2-3 specific, actionable tips]
+**Exercise Performed:**
+[Identify the exercise from the video]
 
-**You're doing great!**
-[End with encouragement]`}
+**Form Assessment:**
+- [Evaluate technique and form quality]
+- [Note any safety concerns]
 
-Remember: 
-- Be encouraging and supportive, not clinical
-- Focus on form and technique, not scoring or rating
-- Give practical tips they can actually use
-- Acknowledge their effort and progress
-- Keep feedback positive and motivational
-- Avoid overwhelming them with too many corrections at once
-- If they did the wrong exercise, gently redirect them to the correct one`
+**Final Result: [✅ PASS or ❌ FAIL]**
+[Explain the result based on form and technique]
+
+**Feedback:**
+[Provide specific, actionable feedback]`}
+
+IMPORTANT RULES:
+- You MUST include either "✅ PASS" or "❌ FAIL" in your response
+- Be specific about what they did right or wrong
+- Base the pass/fail on actual performance vs requirements
+- If they did the wrong exercise entirely, that's an automatic FAIL
+- Focus on measurable criteria, not just encouragement
+- Only pass if they truly met the exercise requirements`
       }
     ];
 

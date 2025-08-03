@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import React from 'react';
 
 interface AnalysisResponse {
   analysis?: string;
@@ -14,13 +15,36 @@ interface ExerciseContext {
   sets?: number;
   reps?: number;
   duration_seconds?: number;
+  routine?: {
+    title: string;
+    description?: string;
+    exercises?: RoutineExercise[];
+  };
+}
+
+interface RoutineExercise {
+  id: string;
+  exercise_id: string;
+  order_in_routine: number;
+  sets: number;
+  reps?: number;
+  duration_seconds?: number;
+  exercises?: {
+    name: string;
+    description?: string;
+    instructions?: string;
+    category?: string;
+    difficulty_level?: number;
+  };
+  completed?: boolean;
 }
 
 interface VideoAnalyzerProps {
   exerciseContext?: ExerciseContext;
+  onBack?: () => void;
 }
 
-export default function VideoAnalyzer({ exerciseContext }: VideoAnalyzerProps) {
+export default function VideoAnalyzer({ exerciseContext, onBack }: VideoAnalyzerProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -33,6 +57,13 @@ export default function VideoAnalyzer({ exerciseContext }: VideoAnalyzerProps) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
+  
+  // Routine-based exercise tracking
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const [exerciseCompletions, setExerciseCompletions] = useState<{[key: string]: boolean}>({});
+  const [showNFTButton, setShowNFTButton] = useState(false);
+  const [isMintingNFT, setIsMintingNFT] = useState(false);
+  const [exerciseResult, setExerciseResult] = useState<'pass' | 'fail' | null>(null);
 
   // Function to format analysis text with proper styling
   const formatAnalysisText = (text: string) => {
@@ -40,7 +71,7 @@ export default function VideoAnalyzer({ exerciseContext }: VideoAnalyzerProps) {
     
     // Split text into lines and process each line
     const lines = text.split('\n');
-    const formattedElements: JSX.Element[] = [];
+    const formattedElements: React.JSX.Element[] = [];
     
     lines.forEach((line, index) => {
       if (line.trim() === '') {
@@ -335,6 +366,37 @@ export default function VideoAnalyzer({ exerciseContext }: VideoAnalyzerProps) {
 
       if (data.analysis) {
         setAnalysis(data.analysis);
+        
+        // Extract pass/fail result from the analysis
+        const analysisLower = data.analysis.toLowerCase();
+        if (analysisLower.includes('✅ pass') || analysisLower.includes('✅pass') || analysisLower.includes('exercise: pass')) {
+          setExerciseResult('pass');
+        } else if (analysisLower.includes('❌ fail') || analysisLower.includes('❌fail') || analysisLower.includes('exercise: fail')) {
+          setExerciseResult('fail');
+        } else {
+          setExerciseResult(null);
+        }
+        
+        // Mark current exercise as completed if we're in routine mode and passed
+        if (exerciseContext?.routine && exerciseContext.name && (analysisLower.includes('✅ pass') || analysisLower.includes('✅pass'))) {
+          const exerciseKey = exerciseContext.name;
+          setExerciseCompletions(prev => ({
+            ...prev,
+            [exerciseKey]: true
+          }));
+          
+          console.log(`✅ Marked exercise '${exerciseKey}' as completed`);
+          
+          // Check if all exercises are now completed
+          const updatedCompletions = { ...exerciseCompletions, [exerciseKey]: true };
+          const allCompleted = exerciseContext.routine.exercises?.every(ex => 
+            updatedCompletions[ex.exercises?.name || '']
+          );
+          
+          if (allCompleted) {
+            console.log('🎉 All exercises in routine completed! NFT button will show.');
+          }
+        }
       } else {
         setError('No analysis received');
       }
@@ -344,6 +406,67 @@ export default function VideoAnalyzer({ exerciseContext }: VideoAnalyzerProps) {
       setIsLoading(false);
     }
   };
+
+  // Function to mint NFT reward for completing routine
+  const mintNFTReward = async () => {
+    if (!exerciseContext?.routine || !checkRoutineCompletion()) return;
+    
+    setIsMintingNFT(true);
+    setError('');
+    
+    try {
+      console.log('🎯 Minting NFT for completed routine:', exerciseContext.routine.title);
+      
+      const response = await fetch('/api/nft/generate-and-mint', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          exerciseType: exerciseContext.routine.title,
+          bodyPart: 'Full Body Routine',
+          difficulty: 'Intermediate',
+          completionScore: 95, // Good score for completing all exercises
+          // Don't pass exerciseCompletionId - let the API create the chain
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to mint NFT');
+      }
+
+      if (data.success) {
+        alert(`🎉 Congratulations! You've earned an NFT for completing the routine: ${exerciseContext.routine.title}!`);
+        // Reset exercise completions for next round
+        setExerciseCompletions({});
+        setShowNFTButton(false);
+      } else {
+        throw new Error('NFT minting failed');
+      }
+    } catch (err) {
+      setError(`NFT minting failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsMintingNFT(false);
+    }
+  };
+
+  // Check if all exercises in routine are completed
+  const checkRoutineCompletion = () => {
+    if (!exerciseContext?.routine?.exercises) return false;
+    
+    const totalExercises = exerciseContext.routine.exercises.length;
+    const completedCount = Object.values(exerciseCompletions).filter(Boolean).length;
+    
+    return completedCount === totalExercises;
+  };
+
+  // Update NFT button visibility when completions change
+  useEffect(() => {
+    const allCompleted = checkRoutineCompletion();
+    setShowNFTButton(allCompleted);
+  }, [exerciseCompletions, exerciseContext]);
 
   return (
     <div style={{ 
@@ -361,6 +484,37 @@ export default function VideoAnalyzer({ exerciseContext }: VideoAnalyzerProps) {
         boxShadow: '0 10px 25px rgba(0, 0, 0, 0.08)',
         border: '1px solid rgba(226, 232, 240, 0.8)'
       }}>
+
+        {/* Back Button - only show if onBack prop is provided */}
+        {onBack && (
+          <div style={{ marginBottom: '20px' }}>
+            <button
+              onClick={onBack}
+              style={{
+                backgroundColor: '#6b7280',
+                color: 'white',
+                border: 'none',
+                padding: '12px 20px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#4b5563';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#6b7280';
+              }}
+            >
+              ← Back to Exercise Selection
+            </button>
+          </div>
+        )}
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           {exerciseContext?.name && (
             <div style={{
@@ -961,6 +1115,125 @@ export default function VideoAnalyzer({ exerciseContext }: VideoAnalyzerProps) {
             <strong style={{ display: 'block', marginBottom: '4px' }}>Oops! Something went wrong</strong>
             <span>{error}</span>
           </div>
+        </div>
+      )}
+
+      {/* Pass/Fail Result */}
+      {exerciseResult && (
+        <div style={{
+          marginBottom: '30px',
+          backgroundColor: exerciseResult === 'pass' ? '#dcfce7' : '#fef2f2',
+          border: `2px solid ${exerciseResult === 'pass' ? '#16a34a' : '#dc2626'}`,
+          borderRadius: '16px',
+          padding: '24px',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            fontSize: '48px',
+            marginBottom: '12px'
+          }}>
+            {exerciseResult === 'pass' ? '✅' : '❌'}
+          </div>
+          <h3 style={{
+            color: exerciseResult === 'pass' ? '#166534' : '#dc2626',
+            fontSize: '24px',
+            fontWeight: '700',
+            margin: '0 0 8px 0'
+          }}>
+            {exerciseResult === 'pass' ? 'Exercise Passed!' : 'Exercise Needs Improvement'}
+          </h3>
+          <p style={{
+            color: exerciseResult === 'pass' ? '#166534' : '#dc2626',
+            fontSize: '16px',
+            margin: '0',
+            fontWeight: '500'
+          }}>
+            {exerciseResult === 'pass' 
+              ? 'Great job! Your form meets the exercise requirements.' 
+              : 'Review the feedback below and try again to improve your form.'}
+          </p>
+          {exerciseResult === 'pass' && exerciseContext?.routine && (
+            <div style={{ marginTop: '16px' }}>
+              <div style={{
+                padding: '12px 20px',
+                backgroundColor: '#16a34a',
+                color: 'white',
+                borderRadius: '25px',
+                fontSize: '14px',
+                fontWeight: '600',
+                display: 'inline-block',
+                marginBottom: '12px'
+              }}>
+                🎯 Exercise Completed in Routine
+              </div>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                {onBack && (
+                  <button
+                    onClick={onBack}
+                    style={{
+                      padding: '12px 24px',
+                      backgroundColor: '#16a34a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✅ Continue to Next Exercise
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          {exerciseResult === 'fail' && (
+            <div style={{
+              marginTop: '16px',
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={() => {
+                  setSelectedFile(null);
+                  setVideoPreview('');
+                  setAnalysis('');
+                  setExerciseResult(null);
+                  setError('');
+                }}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                🔄 Try Again
+              </button>
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ← Back to Exercises
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

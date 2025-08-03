@@ -28,7 +28,7 @@ interface PatientData {
   };
 }
 
-export default function PatientLayout({ initialPage = 'workout' }: PatientLayoutProps) {
+export default function PatientLayout({ initialPage = 'routines' }: PatientLayoutProps) {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [patientRoutines, setPatientRoutines] = useState<any[]>([]);
@@ -181,7 +181,7 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
 
   const fetchRoutineExercises = async (routineId: string) => {
     try {
-      console.log('Fetching exercises for routine:', routineId);
+      console.log('🔄 Fetching exercises for routine:', routineId);
       const { data: exercises, error } = await supabase
         .from('routine_exercises')
         .select(`
@@ -192,14 +192,23 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
         .order('order_in_routine');
 
       if (error) {
-        console.error('Error in fetchRoutineExercises:', error);
+        console.error('❌ Error in fetchRoutineExercises:', error);
         throw error;
       }
       
-      console.log('Fetched routine exercises:', exercises);
+      console.log('✅ Fetched routine exercises:', exercises);
       setRoutineExercises(exercises || []);
+      
+      if (!exercises || exercises.length === 0) {
+        console.warn('⚠️ No exercises found for routine:', routineId);
+      } else {
+        console.log(`📊 Found ${exercises.length} exercises for routine`);
+        exercises.forEach((ex, index) => {
+          console.log(`  ${index + 1}. ${ex.exercises?.name || 'Unknown'} (${ex.sets} sets, ${ex.reps || 'no'} reps, ${ex.duration_seconds || 'no'} duration)`);
+        });
+      }
     } catch (err) {
-      console.error('Error fetching routine exercises:', err);
+      console.error('❌ Error fetching routine exercises:', err);
     }
   };
 
@@ -405,6 +414,460 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
   const renderContent = () => {
     switch (currentPage) {
       case 'workout':
+        // If no routine is selected, show message to select routine first
+        if (!selectedRoutine) {
+          return (
+            <div style={{
+              padding: '40px',
+              backgroundColor: '#f8fafc',
+              minHeight: '100vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <div style={{
+                backgroundColor: 'white',
+                padding: '60px',
+                borderRadius: '16px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e2e8f0',
+                textAlign: 'center',
+                maxWidth: '500px'
+              }}>
+                <div style={{ fontSize: '64px', marginBottom: '24px' }}>📋</div>
+                <h2 style={{
+                  color: '#374151',
+                  fontSize: '24px',
+                  fontWeight: '700',
+                  margin: '0 0 16px 0'
+                }}>
+                  Select a Routine First
+                </h2>
+                <p style={{
+                  color: '#6b7280',
+                  fontSize: '16px',
+                  lineHeight: '1.5',
+                  margin: '0 0 32px 0'
+                }}>
+                  To upload workout videos, you need to select an active routine first. 
+                  This helps our AI understand which exercises you're performing.
+                </p>
+                <button
+                  onClick={() => setCurrentPage('routines')}
+                  style={{
+                    backgroundColor: '#1e40af',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    margin: '0 auto'
+                  }}
+                >
+                  <span>📋</span>
+                  View My Routines
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        // If routine is selected, show exercise context and video analyzer
+        // Show loading state if routine exercises are still being fetched
+        if (routineExercises.length === 0 && selectedRoutine) {
+          return (
+            <div style={{
+              padding: '40px',
+              backgroundColor: '#f8fafc',
+              minHeight: '100vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <div style={{
+                backgroundColor: 'white',
+                padding: '60px',
+                borderRadius: '16px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e2e8f0',
+                textAlign: 'center',
+                maxWidth: '500px'
+              }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  border: '4px solid #e2e8f0',
+                  borderTop: '4px solid #1e40af',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 24px'
+                }} />
+                <h2 style={{
+                  color: '#374151',
+                  fontSize: '24px',
+                  fontWeight: '700',
+                  margin: '0 0 16px 0'
+                }}>
+                  Loading Routine Exercises
+                </h2>
+                <p style={{
+                  color: '#6b7280',
+                  fontSize: '16px',
+                  lineHeight: '1.5',
+                  margin: '0'
+                }}>
+                  Loading exercises for "{selectedRoutine.title}"...
+                </p>
+              </div>
+            </div>
+          );
+        }
+
+        // If no specific exercise is selected, show exercise selection interface
+        if (!selectedExercise && routineExercises.length > 0) {
+          return (
+            <div style={{
+              padding: '40px',
+              backgroundColor: '#f8fafc',
+              minHeight: '100vh'
+            }}>
+              <div style={{
+                maxWidth: '900px',
+                margin: '0 auto',
+                backgroundColor: 'white',
+                borderRadius: '16px',
+                padding: '40px',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.08)',
+                border: '1px solid rgba(226, 232, 240, 0.8)'
+              }}>
+                {/* Routine Header */}
+                <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+                  <div style={{
+                    backgroundColor: '#dbeafe',
+                    color: '#1e40af',
+                    padding: '12px 20px',
+                    borderRadius: '25px',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    display: 'inline-block',
+                    marginBottom: '16px',
+                    border: '2px solid #3b82f6'
+                  }}>
+                    📋 {selectedRoutine.title}
+                  </div>
+                  
+                  {selectedRoutine.description && (
+                    <p style={{
+                      color: '#6b7280',
+                      fontSize: '16px',
+                      lineHeight: '1.6',
+                      margin: '0 0 20px 0'
+                    }}>
+                      {selectedRoutine.description}
+                    </p>
+                  )}
+
+                  <h1 style={{
+                    color: '#1e293b',
+                    fontSize: '2.2rem',
+                    fontWeight: '700',
+                    margin: '0 0 8px 0'
+                  }}>
+                    Select Exercise to Record
+                  </h1>
+                  <p style={{
+                    color: '#64748b',
+                    fontSize: '16px',
+                    margin: '0',
+                    lineHeight: '1.6'
+                  }}>
+                    Choose which exercise you want to record and get AI analysis for. Complete all exercises to earn your NFT reward!
+                  </p>
+                </div>
+
+                {/* Routine Progress */}
+                <div style={{
+                  backgroundColor: '#f0f9ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '30px'
+                }}>
+                  <h3 style={{
+                    color: '#1e40af',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    margin: '0 0 16px 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    📊 Routine Progress
+                  </h3>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '12px'
+                  }}>
+                    <div style={{
+                      backgroundColor: '#1e40af',
+                      color: 'white',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}>
+                      0 / {routineExercises.length} completed
+                    </div>
+                    <div style={{
+                      flex: 1,
+                      height: '8px',
+                      backgroundColor: '#e2e8f0',
+                      borderRadius: '4px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        width: '0%',
+                        height: '100%',
+                        backgroundColor: '#10b981',
+                        transition: 'width 0.3s ease'
+                      }} />
+                    </div>
+                  </div>
+                  <p style={{
+                    color: '#6b7280',
+                    fontSize: '14px',
+                    margin: '0'
+                  }}>
+                    Record videos for each exercise to get personalized feedback and earn your NFT when complete!
+                  </p>
+                </div>
+
+                {/* Exercise List */}
+                <div style={{
+                  display: 'grid',
+                  gap: '16px'
+                }}>
+                  {routineExercises.map((exercise, index) => (
+                    <div
+                      key={exercise.id}
+                      onClick={() => setSelectedExercise(exercise)}
+                      style={{
+                        border: '2px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        backgroundColor: '#fafbfc',
+                        position: 'relative'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = '#3b82f6';
+                        e.currentTarget.style.backgroundColor = '#f0f9ff';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.backgroundColor = '#fafbfc';
+                      }}
+                    >
+                      {/* Completion Badge */}
+                      {exercise.completed && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '12px',
+                          right: '12px',
+                          backgroundColor: '#16a34a',
+                          color: 'white',
+                          padding: '4px 12px',
+                          borderRadius: '20px',
+                          fontSize: '12px',
+                          fontWeight: '600'
+                        }}>
+                          ✓ Completed
+                        </div>
+                      )}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '16px'
+                      }}>
+                        {/* Exercise Number with Completion Status */}
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '50%',
+                          backgroundColor: exercise.completed ? '#16a34a' : '#1e40af',
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: exercise.completed ? '20px' : '18px',
+                          fontWeight: '700',
+                          flexShrink: 0
+                        }}>
+                          {exercise.completed ? '✓' : exercise.order_in_routine}
+                        </div>
+
+                        {/* Exercise Details */}
+                        <div style={{ flex: 1 }}>
+                          <h3 style={{
+                            color: '#1e40af',
+                            fontSize: '20px',
+                            fontWeight: '700',
+                            margin: '0 0 8px 0'
+                          }}>
+                            {exercise.exercises?.name || 'Unknown Exercise'}
+                          </h3>
+                          
+                          {exercise.exercises?.description && (
+                            <p style={{
+                              color: '#6b7280',
+                              fontSize: '14px',
+                              margin: '0 0 12px 0',
+                              lineHeight: '1.5'
+                            }}>
+                              {exercise.exercises.description}
+                            </p>
+                          )}
+
+                          {/* Exercise Parameters */}
+                          <div style={{
+                            display: 'flex',
+                            gap: '16px',
+                            flexWrap: 'wrap',
+                            marginBottom: '12px'
+                          }}>
+                            {exercise.sets && (
+                              <div style={{
+                                backgroundColor: '#eff6ff',
+                                color: '#1e40af',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                              }}>
+                                {exercise.sets} sets
+                              </div>
+                            )}
+                            {exercise.reps && (
+                              <div style={{
+                                backgroundColor: '#f0fdf4',
+                                color: '#059669',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                              }}>
+                                {exercise.reps} reps
+                              </div>
+                            )}
+                            {exercise.duration_seconds && (
+                              <div style={{
+                                backgroundColor: '#fef3c7',
+                                color: '#d97706',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                              }}>
+                                {exercise.duration_seconds}s
+                              </div>
+                            )}
+                            {exercise.exercises?.difficulty_level && (
+                              <div style={{
+                                backgroundColor: '#fce7f3',
+                                color: '#be185d',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                              }}>
+                                Level {exercise.exercises.difficulty_level}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Instructions */}
+                          {exercise.exercises?.instructions && (
+                            <div style={{
+                              backgroundColor: '#f0f9ff',
+                              border: '1px solid #bfdbfe',
+                              borderRadius: '6px',
+                              padding: '12px',
+                              marginTop: '12px'
+                            }}>
+                              <p style={{
+                                color: '#1e40af',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                margin: '0 0 4px 0'
+                              }}>
+                                💡 Instructions:
+                              </p>
+                              <p style={{
+                                color: '#374151',
+                                fontSize: '13px',
+                                margin: '0',
+                                lineHeight: '1.5'
+                              }}>
+                                {exercise.exercises.instructions}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Arrow Indicator */}
+                        <div style={{
+                          color: '#3b82f6',
+                          fontSize: '24px',
+                          opacity: 0.7
+                        }}>
+                          →
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Back Button */}
+                <div style={{
+                  textAlign: 'center',
+                  marginTop: '30px',
+                  paddingTop: '20px',
+                  borderTop: '1px solid #e2e8f0'
+                }}>
+                  <button
+                    onClick={() => setSelectedRoutine(null)}
+                    style={{
+                      backgroundColor: '#6b7280',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      margin: '0 auto'
+                    }}
+                  >
+                    ← Back to Routines
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // If specific exercise is selected, create proper exercise context
         const exerciseContext = selectedExercise ? {
           name: selectedExercise.exercises?.name,
           description: selectedExercise.exercises?.description,
@@ -413,10 +876,15 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
           difficulty_level: selectedExercise.exercises?.difficulty_level,
           sets: selectedExercise.sets,
           reps: selectedExercise.reps,
-          duration_seconds: selectedExercise.duration_seconds
+          duration_seconds: selectedExercise.duration_seconds,
+          routine: {
+            title: selectedRoutine.title,
+            description: selectedRoutine.description,
+            exercises: routineExercises
+          }
         } : undefined;
         
-        return <VideoAnalyzer exerciseContext={exerciseContext} />;
+        return <VideoAnalyzer exerciseContext={exerciseContext} onBack={() => setSelectedExercise(null)} />;
       case 'routines':
         return (
           <div style={{
@@ -451,6 +919,21 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                 lineHeight: '1.5'
               }}>
                 View and track the exercise routines prescribed by your healthcare provider.
+                {selectedRoutine && (
+                  <span style={{
+                    display: 'block',
+                    marginTop: '8px',
+                    padding: '8px 12px',
+                    backgroundColor: '#eff6ff',
+                    border: '1px solid #dbeafe',
+                    borderRadius: '6px',
+                    color: '#1e40af',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}>
+                    ✓ Currently selected: {selectedRoutine.title}
+                  </span>
+                )}
               </p>
             </div>
 
@@ -507,13 +990,29 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                     <div
                       key={routine.id}
                       style={{
-                        border: '2px solid #dbeafe',
+                        border: selectedRoutine?.id === routine.id ? '3px solid #1e40af' : '2px solid #dbeafe',
                         borderRadius: '8px',
                         padding: '20px',
                         marginBottom: '16px',
-                        backgroundColor: '#f0f9ff'
+                        backgroundColor: selectedRoutine?.id === routine.id ? '#eff6ff' : '#f0f9ff',
+                        position: 'relative'
                       }}
                     >
+                      {selectedRoutine?.id === routine.id && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '12px',
+                          right: '12px',
+                          backgroundColor: '#1e40af',
+                          color: 'white',
+                          padding: '4px 8px',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                          fontWeight: '600'
+                        }}>
+                          SELECTED
+                        </div>
+                      )}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
                         <h3 style={{
                           color: '#1e40af',
@@ -561,9 +1060,9 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                       
                       <div style={{ display: 'flex', gap: '10px' }}>
                         <button 
-                          onClick={() => {
+                          onClick={async () => {
                             setSelectedRoutine(routine);
-                            fetchRoutineExercises(routine.id);
+                            await fetchRoutineExercises(routine.id);
                           }}
                           style={{
                             backgroundColor: '#1e40af',
@@ -573,17 +1072,22 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                             borderRadius: '6px',
                             fontSize: '14px',
                             fontWeight: '500',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            marginRight: '8px'
                           }}
                         >
                           View Exercises
                         </button>
                         <button 
-                          onClick={() => setCurrentPage('workout')}
+                          onClick={async () => {
+                            setSelectedRoutine(routine);
+                            await fetchRoutineExercises(routine.id);
+                            setCurrentPage('workout');
+                          }}
                           style={{
-                            backgroundColor: 'transparent',
-                            color: '#1e40af',
-                            border: '2px solid #1e40af',
+                            backgroundColor: '#059669',
+                            color: 'white',
+                            border: 'none',
                             padding: '8px 16px',
                             borderRadius: '6px',
                             fontSize: '14px',
@@ -591,7 +1095,7 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                             cursor: 'pointer'
                           }}
                         >
-                          Start Session
+                          Start Workout
                         </button>
                       </div>
                     </div>
@@ -2016,7 +2520,9 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
     }}>
       <PatientSidebar 
         currentPage={currentPage} 
-        onPageChange={setCurrentPage} 
+        onPageChange={setCurrentPage}
+        selectedRoutine={selectedRoutine}
+        hasActiveRoutine={!!selectedRoutine}
       />
       
       <div style={{

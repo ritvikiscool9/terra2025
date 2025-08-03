@@ -3,29 +3,36 @@ import { useState } from 'react';
 interface PatientSidebarProps {
   currentPage: string;
   onPageChange: (page: string) => void;
+  selectedRoutine?: any;
+  hasActiveRoutine?: boolean;
 }
 
-export default function PatientSidebar({ currentPage, onPageChange }: PatientSidebarProps) {
+export default function PatientSidebar({ currentPage, onPageChange, selectedRoutine, hasActiveRoutine }: PatientSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const menuItems = [
     {
+      id: 'routines',
+      label: 'My Routines',
+      icon: '📋',
+      description: 'View assigned exercise routines',
+      disabled: false
+    },
+    {
       id: 'workout',
       label: 'Upload Workout',
       icon: '🏋️',
-      description: 'Record or upload exercise videos'
-    },
-    {
-      id: 'routines',
-      label: 'My Routines',
-      icon: '�',
-      description: 'View assigned exercise routines'
+      description: hasActiveRoutine 
+        ? `Record exercises for: ${selectedRoutine?.title || 'Selected routine'}` 
+        : 'Select a routine first to upload workout videos',
+      disabled: !hasActiveRoutine
     },
     {
       id: 'profile',
       label: 'Patient Profile',
       icon: '👤',
-      description: 'Manage your health profile'
+      description: 'Manage your health profile',
+      disabled: false
     }
   ];
 
@@ -117,28 +124,30 @@ export default function PatientSidebar({ currentPage, onPageChange }: PatientSid
         {menuItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => onPageChange(item.id)}
+            onClick={() => !item.disabled && onPageChange(item.id)}
+            disabled={item.disabled}
             style={{
               width: '100%',
               padding: isCollapsed ? '16px 12px' : '16px 20px',
               border: 'none',
               backgroundColor: currentPage === item.id ? '#eff6ff' : 'transparent',
               borderLeft: currentPage === item.id ? '4px solid #2563eb' : '4px solid transparent',
-              cursor: 'pointer',
+              cursor: item.disabled ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
               transition: 'all 0.2s ease',
               textAlign: 'left',
-              marginBottom: '4px'
+              marginBottom: '4px',
+              opacity: item.disabled ? 0.5 : 1
             }}
             onMouseEnter={(e) => {
-              if (currentPage !== item.id) {
+              if (currentPage !== item.id && !item.disabled) {
                 e.currentTarget.style.backgroundColor = '#f8fafc';
               }
             }}
             onMouseLeave={(e) => {
-              if (currentPage !== item.id) {
+              if (currentPage !== item.id && !item.disabled) {
                 e.currentTarget.style.backgroundColor = 'transparent';
               }
             }}
@@ -156,14 +165,24 @@ export default function PatientSidebar({ currentPage, onPageChange }: PatientSid
                 <div style={{
                   fontSize: '15px',
                   fontWeight: '600',
-                  color: currentPage === item.id ? '#2563eb' : '#374151',
+                  color: item.disabled ? '#9ca3af' : (currentPage === item.id ? '#2563eb' : '#374151'),
                   marginBottom: '2px'
                 }}>
                   {item.label}
+                  {item.disabled && (
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: '400',
+                      color: '#ef4444',
+                      marginLeft: '8px'
+                    }}>
+                      (Disabled)
+                    </span>
+                  )}
                 </div>
                 <div style={{
                   fontSize: '12px',
-                  color: '#6b7280',
+                  color: item.disabled ? '#9ca3af' : '#6b7280',
                   lineHeight: '1.3'
                 }}>
                   {item.description}

@@ -2354,11 +2354,7 @@ export default function DoctorDashboard() {
               </button>
             </div>
 
-            {/* Modal Content */}
             <div style={{ padding: '24px' }}>
-              {/* Basic Information */}
-              <div style={{ marginBottom: '24px' }}>
-                <h3 style={{
                   color: '#374151',
                   fontSize: '18px',
                   fontWeight: '600',
@@ -2649,6 +2645,140 @@ export default function DoctorDashboard() {
                   Update Patient
                 </button>
               </div>
+=======
+              <div style={{ display: 'flex', gap: '24px', marginBottom: '24px' }}>
+                {/* NFT Image */}
+                <div style={{ flex: '0 0 200px' }}>
+                  <div style={{
+                    width: '200px',
+                    height: '200px',
+                    backgroundImage: `url(${selectedNFT.image_url})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    borderRadius: '16px',
+                    position: 'relative',
+                    border: '3px solid #e2e8f0'
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: '8px',
+                      right: '8px',
+                      backgroundColor: getRarityColor(selectedNFT.rarity),
+                      color: 'white',
+                      padding: '4px 8px',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      fontWeight: '600'
+                    }}>
+                      {selectedNFT.rarity}
+                    </div>
+                  </div>
+                </div>
+
+                {/* NFT Details */}
+                <div style={{ flex: 1 }}>
+                  <h2 style={{
+                    color: '#374151',
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    margin: '0 0 12px 0'
+                  }}>
+                    {selectedNFT.name}
+                  </h2>
+
+                  <p style={{
+                    color: '#6b7280',
+                    fontSize: '14px',
+                    lineHeight: '1.5',
+                    margin: '0 0 20px 0'
+                  }}>
+                    {selectedNFT.description}
+                  </p>
+
+                  {/* Key Stats */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '12px',
+                    marginBottom: '20px'
+                  }}>
+                    <div style={{
+                      padding: '12px',
+                      backgroundColor: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      <div style={{ color: '#6b7280', fontSize: '12px', fontWeight: '500' }}>Exercise Type</div>
+                      <div style={{ color: '#374151', fontSize: '14px', fontWeight: '600' }}>{selectedNFT.exercise_type}</div>
+                    </div>
+                    {selectedNFT.completion_score && (
+                      <div style={{
+                        padding: '12px',
+                        backgroundColor: '#f0f9ff',
+                        borderRadius: '8px',
+                        border: '1px solid #dbeafe'
+                      }}>
+                        <div style={{ color: '#6b7280', fontSize: '12px', fontWeight: '500' }}>Score</div>
+                        <div style={{ color: '#1e40af', fontSize: '14px', fontWeight: '600' }}>{selectedNFT.completion_score}%</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Blockchain Info */}
+              <div style={{
+                backgroundColor: '#f8fafc',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <h3 style={{
+                  color: '#374151',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  margin: '0 0 12px 0'
+                }}>
+                  Blockchain Details
+                </h3>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {selectedNFT.transaction_hash && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#6b7280', fontSize: '13px' }}>Transaction:</span>
+                      <a 
+                        href={`https://amoy.polygonscan.com/tx/${selectedNFT.transaction_hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ 
+                          color: '#1e40af', 
+                          fontSize: '13px',
+                          fontFamily: 'monospace',
+                          textDecoration: 'none'
+                        }}
+                      >
+                        {`${selectedNFT.transaction_hash.slice(0, 8)}...${selectedNFT.transaction_hash.slice(-8)}`}
+                      </a>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6b7280', fontSize: '13px' }}>Contract:</span>
+                    <span style={{ 
+                      color: '#374151', 
+                      fontSize: '13px',
+                      fontFamily: 'monospace'
+                    }}>
+                      {`${selectedNFT.contract_address.slice(0, 8)}...${selectedNFT.contract_address.slice(-8)}`}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6b7280', fontSize: '13px' }}>Minted:</span>
+                    <span style={{ color: '#374151', fontSize: '13px' }}>
+                      {new Date(selectedNFT.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+>>>>>>> 16d72a3bf5d2585867dd4b2efb351ffc52fe7cbb
             </div>
           </div>
         </div>
