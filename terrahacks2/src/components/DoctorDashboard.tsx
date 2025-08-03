@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase, Patient, ExerciseCompletion, Exercise } from '../lib/supabase';
+import { supabase, Patient, ExerciseCompletion, Exercise, NFT } from '../lib/supabase';
 
 interface PatientWithStats extends Patient {
   totalExercises?: number;
@@ -12,6 +12,9 @@ export default function DoctorDashboard() {
   const [patients, setPatients] = useState<PatientWithStats[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<PatientWithStats | null>(null);
   const [patientCompletions, setPatientCompletions] = useState<ExerciseCompletion[]>([]);
+  const [patientNFTs, setPatientNFTs] = useState<NFT[]>([]);
+  const [isLoadingNFTs, setIsLoadingNFTs] = useState(false);
+  const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [showCreateRoutine, setShowCreateRoutine] = useState(false);
@@ -41,6 +44,43 @@ export default function DoctorDashboard() {
       setAvailableExercises(exercises || []);
     } catch (err) {
       console.error('Error fetching exercises:', err);
+    }
+  };
+
+  const fetchPatientNFTs = async (patientId: string) => {
+    try {
+      setIsLoadingNFTs(true);
+      console.log('Fetching NFTs for patient:', patientId);
+      
+      const { data: nfts, error } = await supabase
+        .from('nfts')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching NFTs:', error);
+        throw error;
+      }
+
+      console.log('Fetched NFTs:', nfts);
+      setPatientNFTs(nfts || []);
+    } catch (err) {
+      console.error('Error fetching NFTs:', err);
+      setPatientNFTs([]);
+    } finally {
+      setIsLoadingNFTs(false);
+    }
+  };
+
+  const getRarityColor = (rarity?: string) => {
+    switch (rarity) {
+      case 'Legendary': return '#fbbf24'; // Gold
+      case 'Epic': return '#a855f7'; // Purple
+      case 'Rare': return '#3b82f6'; // Blue
+      case 'Uncommon': return '#10b981'; // Green
+      case 'Common': return '#6b7280'; // Gray
+      default: return '#6b7280';
     }
   };
 
@@ -155,6 +195,9 @@ export default function DoctorDashboard() {
 
       if (error) throw error;
       setPatientCompletions(completions || []);
+
+      // Fetch NFTs for this patient
+      await fetchPatientNFTs(patient.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch patient details');
     }
@@ -738,6 +781,145 @@ export default function DoctorDashboard() {
                       <h3 style={{ color: '#6b7280', marginBottom: '8px' }}>No Exercise Completions</h3>
                       <p style={{ color: '#9ca3af', fontSize: '14px', margin: '0' }}>
                         This patient hasn't completed any exercises yet.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Patient NFT Collection */}
+                <div style={{ marginTop: '30px' }}>
+                  <h3 style={{
+                    color: '#374151',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <span style={{ fontSize: '20px' }}>🎨</span>
+                    Patient NFT Collection ({patientNFTs.length})
+                  </h3>
+
+                  {isLoadingNFTs ? (
+                    <div style={{ textAlign: 'center', padding: '40px' }}>
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        border: '4px solid #e2e8f0',
+                        borderTop: '4px solid #1e40af',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                        margin: '0 auto 16px'
+                      }} />
+                      <p style={{ color: '#6b7280', fontSize: '16px', margin: '0' }}>Loading NFT collection...</p>
+                    </div>
+                  ) : patientNFTs.length > 0 ? (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                      gap: '16px',
+                      maxHeight: '400px',
+                      overflowY: 'auto',
+                      padding: '16px',
+                      border: '2px solid #e2e8f0',
+                      borderRadius: '8px',
+                      backgroundColor: '#f9fafb'
+                    }}>
+                      {patientNFTs.map((nft) => (
+                        <div
+                          key={nft.id}
+                          onClick={() => setSelectedNFT(nft)}
+                          style={{
+                            border: '2px solid #e2e8f0',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                            backgroundColor: 'white',
+                            transition: 'all 0.3s ease',
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-4px)';
+                            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                          }}
+                        >
+                          <div style={{
+                            width: '100%',
+                            height: '160px',
+                            backgroundImage: `url(${nft.image_url})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            position: 'relative'
+                          }}>
+                            <div style={{
+                              position: 'absolute',
+                              top: '8px',
+                              right: '8px',
+                              backgroundColor: getRarityColor(nft.rarity),
+                              color: 'white',
+                              padding: '4px 8px',
+                              borderRadius: '16px',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                            }}>
+                              {nft.rarity}
+                            </div>
+                            {nft.completion_score && (
+                              <div style={{
+                                position: 'absolute',
+                                top: '8px',
+                                left: '8px',
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                color: 'white',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '10px',
+                                fontWeight: '600'
+                              }}>
+                                {nft.completion_score}%
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ padding: '12px' }}>
+                            <h4 style={{
+                              color: '#374151',
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              margin: '0 0 4px 0',
+                              lineHeight: '1.2'
+                            }}>
+                              {nft.name}
+                            </h4>
+                            <p style={{
+                              color: '#6b7280',
+                              fontSize: '11px',
+                              margin: '0',
+                              lineHeight: '1.3'
+                            }}>
+                              {nft.exercise_type}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '40px',
+                      border: '2px dashed #d1d5db',
+                      borderRadius: '8px',
+                      backgroundColor: '#f9fafb'
+                    }}>
+                      <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎨</div>
+                      <h4 style={{ color: '#6b7280', marginBottom: '8px' }}>No NFTs Earned Yet</h4>
+                      <p style={{ color: '#9ca3af', fontSize: '14px', margin: '0' }}>
+                        Patient will earn NFTs when completing exercises with good form.
                       </p>
                     </div>
                   )}
