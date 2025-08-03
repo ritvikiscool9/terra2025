@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, Patient, ExerciseCompletion, Exercise, NFT, Routine, RoutineExercise } from '../lib/supabase';
+import AddCustomExerciseModal from './AddCustomExerciseModal';
 
 interface PatientWithStats extends Patient {
   totalExercises?: number;
@@ -25,6 +26,10 @@ export default function DoctorDashboard() {
   const [selectedPatientForRoutine, setSelectedPatientForRoutine] = useState<PatientWithStats | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [editingRoutineExercises, setEditingRoutineExercises] = useState<RoutineExercise[]>([]);
+  const [showEditPatient, setShowEditPatient] = useState(false);
+  const [editingPatient, setEditingPatient] = useState<PatientWithStats | null>(null);
+  const [showCustomExerciseModal, setShowCustomExerciseModal] = useState(false);
+  const [exerciseSearchQuery, setExerciseSearchQuery] = useState('');
   const [newRoutine, setNewRoutine] = useState({
     title: '',
     description: '',
@@ -386,6 +391,7 @@ export default function DoctorDashboard() {
       setShowCreateRoutine(false);
       setSelectedPatientForRoutine(null);
       setAvailableExercises([]);
+      setExerciseSearchQuery('');
       setNewRoutine({
         title: '',
         description: '',
@@ -509,6 +515,7 @@ export default function DoctorDashboard() {
       setEditingRoutine(null);
       setEditingRoutineExercises([]);
       setAvailableExercises([]);
+      setExerciseSearchQuery('');
 
       // Refresh patient routines
       if (selectedPatient) {
@@ -552,6 +559,125 @@ export default function DoctorDashboard() {
       prev.map((ex, i) => 
         i === index ? { ...ex, [field]: value } : ex
       )
+    );
+  };
+
+  const startEditPatient = (patient: PatientWithStats) => {
+    setEditingPatient({...patient}); // Create a copy to avoid mutating the original
+    setShowEditPatient(true);
+  };
+
+  const updatePatient = async () => {
+    try {
+      if (!editingPatient) return;
+
+      console.log('Updating patient:', editingPatient);
+
+      // Update the patient information
+      const { error: updateError } = await supabase
+        .from('patients')
+        .update({
+          medical_conditions: editingPatient.medical_conditions,
+          current_medications: editingPatient.current_medications,
+          phone: editingPatient.phone,
+          emergency_contact_name: editingPatient.emergency_contact_name,
+          emergency_contact_phone: editingPatient.emergency_contact_phone
+        })
+        .eq('id', editingPatient.id);
+
+      if (updateError) {
+        console.error('Error updating patient:', updateError);
+        throw updateError;
+      }
+
+      alert('Patient information updated successfully!');
+      setShowEditPatient(false);
+      setEditingPatient(null);
+
+      // Refresh the patients list
+      await fetchPatients();
+
+      // If this patient was selected, update the selected patient data
+      if (selectedPatient && selectedPatient.id === editingPatient.id) {
+        setSelectedPatient({...editingPatient});
+      }
+    } catch (err) {
+      console.error('Error updating patient:', err);
+      alert(`Failed to update patient: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again.`);
+    }
+  };
+
+  const addMedicalCondition = () => {
+    if (!editingPatient) return;
+    setEditingPatient(prev => prev ? {
+      ...prev,
+      medical_conditions: [...(prev.medical_conditions || []), '']
+    } : null);
+  };
+
+  const removeMedicalCondition = (index: number) => {
+    if (!editingPatient) return;
+    setEditingPatient(prev => prev ? {
+      ...prev,
+      medical_conditions: prev.medical_conditions?.filter((_, i) => i !== index) || []
+    } : null);
+  };
+
+  const updateMedicalCondition = (index: number, value: string) => {
+    if (!editingPatient) return;
+    setEditingPatient(prev => prev ? {
+      ...prev,
+      medical_conditions: prev.medical_conditions?.map((condition, i) => 
+        i === index ? value : condition
+      ) || []
+    } : null);
+  };
+
+  const addCurrentMedication = () => {
+    if (!editingPatient) return;
+    setEditingPatient(prev => prev ? {
+      ...prev,
+      current_medications: [...(prev.current_medications || []), '']
+    } : null);
+  };
+
+  const removeCurrentMedication = (index: number) => {
+    if (!editingPatient) return;
+    setEditingPatient(prev => prev ? {
+      ...prev,
+      current_medications: prev.current_medications?.filter((_, i) => i !== index) || []
+    } : null);
+  };
+
+  const updateCurrentMedication = (index: number, value: string) => {
+    if (!editingPatient) return;
+    setEditingPatient(prev => prev ? {
+      ...prev,
+      current_medications: prev.current_medications?.map((medication, i) => 
+        i === index ? value : medication
+      ) || []
+    } : null);
+  };
+
+  const handleCustomExerciseAdded = (exercise: Exercise) => {
+    // Add the new custom exercise to available exercises
+    setAvailableExercises(prev => [exercise, ...prev]);
+    console.log('Custom exercise added to available exercises:', exercise);
+  };
+
+  const getFilteredExercises = () => {
+    if (!exerciseSearchQuery.trim()) {
+      return availableExercises;
+    }
+    
+    const query = exerciseSearchQuery.toLowerCase();
+    return availableExercises.filter(exercise =>
+      exercise.name.toLowerCase().includes(query) ||
+      (exercise.category && exercise.category.toLowerCase().includes(query)) ||
+      (exercise.description && exercise.description.toLowerCase().includes(query)) ||
+      (exercise.muscle_groups && exercise.muscle_groups.some(muscle => 
+        muscle.toLowerCase().includes(query)
+      ))
     );
   };
 
@@ -832,16 +958,37 @@ export default function DoctorDashboard() {
                   }}>
                     {selectedPatient.first_name} {selectedPatient.last_name}
                   </h3>
-                  <span style={{
-                    backgroundColor: '#22c55e',
-                    color: 'white',
-                    padding: '4px 12px',
-                    borderRadius: '20px',
-                    fontSize: '12px',
-                    fontWeight: '500'
-                  }}>
-                    PATIENT
-                  </span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => startEditPatient(selectedPatient)}
+                      style={{
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <span>✏️</span>
+                      Edit Patient
+                    </button>
+                    <span style={{
+                      backgroundColor: '#22c55e',
+                      color: 'white',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: '500'
+                    }}>
+                      PATIENT
+                    </span>
+                  </div>
                 </div>
                 
                 <div style={{ marginBottom: '12px' }}>
@@ -859,8 +1006,18 @@ export default function DoctorDashboard() {
                     </p>
                   )}
                   {selectedPatient.nft_wallet_address && (
-                    <p style={{ color: '#6b7280', margin: '0', fontSize: '14px' }}>
+                    <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
                       <strong>Wallet:</strong> {selectedPatient.nft_wallet_address.slice(0, 6)}...{selectedPatient.nft_wallet_address.slice(-4)}
+                    </p>
+                  )}
+                  {selectedPatient.medical_conditions && selectedPatient.medical_conditions.length > 0 && (
+                    <p style={{ color: '#6b7280', margin: '0 0 8px 0', fontSize: '14px' }}>
+                      <strong>Medical Conditions:</strong> {selectedPatient.medical_conditions.join(', ')}
+                    </p>
+                  )}
+                  {selectedPatient.current_medications && selectedPatient.current_medications.length > 0 && (
+                    <p style={{ color: '#6b7280', margin: '0', fontSize: '14px' }}>
+                      <strong>Current Medications:</strong> {selectedPatient.current_medications.join(', ')}
                     </p>
                   )}
                 </div>
@@ -1275,6 +1432,7 @@ export default function DoctorDashboard() {
                   setShowCreateRoutine(false);
                   setSelectedPatientForRoutine(null);
                   setAvailableExercises([]);
+                  setExerciseSearchQuery('');
                   setNewRoutine({
                     title: '',
                     description: '',
@@ -1399,30 +1557,119 @@ export default function DoctorDashboard() {
 
               {/* Exercise Selection */}
               <div style={{ marginBottom: '24px' }}>
-                <h3 style={{
-                  color: '#374151',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  marginBottom: '12px'
-                }}>
-                  {selectedPatientForRoutine ? (
-                    <>
-                      Personalized Exercises for {selectedPatientForRoutine.first_name} {selectedPatientForRoutine.last_name}
-                      {selectedPatientForRoutine.medical_conditions && selectedPatientForRoutine.medical_conditions.length > 0 && (
-                        <div style={{ 
-                          fontSize: '14px', 
-                          color: '#6b7280', 
-                          fontWeight: '400',
-                          marginTop: '4px'
-                        }}>
-                          Medical Conditions: {selectedPatientForRoutine.medical_conditions.join(', ')}
-                        </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{
+                    color: '#374151',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    margin: '0'
+                  }}>
+                    {selectedPatientForRoutine ? (
+                      <>
+                        Personalized Exercises for {selectedPatientForRoutine.first_name} {selectedPatientForRoutine.last_name}
+                        {selectedPatientForRoutine.medical_conditions && selectedPatientForRoutine.medical_conditions.length > 0 && (
+                          <div style={{ 
+                            fontSize: '14px', 
+                            color: '#6b7280', 
+                            fontWeight: '400',
+                            marginTop: '4px'
+                          }}>
+                            Medical Conditions: {selectedPatientForRoutine.medical_conditions.join(', ')}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      'Available Exercises'
+                    )}
+                  </h3>
+                  <button
+                    onClick={() => setShowCustomExerciseModal(true)}
+                    style={{
+                      backgroundColor: '#059669',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#047857'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+                  >
+                    <span>💪</span>
+                    Add Custom Exercise
+                  </button>
+                </div>
+
+                {/* Search Bar */}
+                {availableExercises.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={exerciseSearchQuery}
+                        onChange={(e) => setExerciseSearchQuery(e.target.value)}
+                        placeholder="Search exercises by name, category, or muscle group..."
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px 12px 40px',
+                          border: '2px solid #e5e7eb',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          outline: 'none',
+                          backgroundColor: '#f9fafb',
+                          color: '#374151'
+                        }}
+                      />
+                      <span style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '16px',
+                        color: '#6b7280'
+                      }}>
+                        🔍
+                      </span>
+                      {exerciseSearchQuery && (
+                        <button
+                          onClick={() => setExerciseSearchQuery('')}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            fontSize: '18px',
+                            color: '#6b7280',
+                            cursor: 'pointer',
+                            padding: '0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          ✕
+                        </button>
                       )}
-                    </>
-                  ) : (
-                    'Available Exercises'
-                  )}
-                </h3>
+                    </div>
+                    {exerciseSearchQuery && (
+                      <div style={{
+                        fontSize: '12px',
+                        color: '#6b7280',
+                        marginTop: '4px'
+                      }}>
+                        Found {getFilteredExercises().length} exercise{getFilteredExercises().length !== 1 ? 's' : ''} matching "{exerciseSearchQuery}"
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 {isGeneratingExercises ? (
                   <div style={{
@@ -1458,6 +1705,21 @@ export default function DoctorDashboard() {
                   }}>
                     Please select a patient to generate personalized exercises
                   </div>
+                ) : getFilteredExercises().length === 0 && exerciseSearchQuery ? (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '40px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    backgroundColor: '#f9fafb',
+                    color: '#6b7280'
+                  }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+                    <h4 style={{ margin: '0 0 8px 0' }}>No exercises found</h4>
+                    <p style={{ margin: '0', fontSize: '14px' }}>
+                      Try searching with different keywords or clear the search to see all exercises.
+                    </p>
+                  </div>
                 ) : (
                   <div style={{
                     display: 'grid',
@@ -1469,7 +1731,7 @@ export default function DoctorDashboard() {
                     borderRadius: '8px',
                     padding: '16px'
                   }}>
-                    {availableExercises.map(exercise => (
+                    {getFilteredExercises().map(exercise => (
                       <div
                         key={exercise.id}
                         onClick={() => addExerciseToRoutine(exercise)}
@@ -1765,6 +2027,7 @@ export default function DoctorDashboard() {
                   setEditingRoutine(null);
                   setEditingRoutineExercises([]);
                   setAvailableExercises([]);
+                  setExerciseSearchQuery('');
                 }}
                 style={{
                   backgroundColor: 'transparent',
@@ -1893,55 +2156,161 @@ export default function DoctorDashboard() {
 
               {/* Exercise Selection */}
               <div style={{ marginBottom: '24px' }}>
-                <h3 style={{
-                  color: '#374151',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  marginBottom: '12px'
-                }}>
-                  Available Exercises
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{
+                    color: '#374151',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    margin: '0'
+                  }}>
+                    Available Exercises
+                  </h3>
+                  <button
+                    onClick={() => setShowCustomExerciseModal(true)}
+                    style={{
+                      backgroundColor: '#059669',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#047857'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+                  >
+                    <span>💪</span>
+                    Add Custom Exercise
+                  </button>
+                </div>
+
+                {/* Search Bar */}
+                {availableExercises.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={exerciseSearchQuery}
+                        onChange={(e) => setExerciseSearchQuery(e.target.value)}
+                        placeholder="Search exercises by name, category, or muscle group..."
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px 12px 40px',
+                          border: '2px solid #e5e7eb',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          outline: 'none',
+                          backgroundColor: '#f9fafb',
+                          color: '#374151'
+                        }}
+                      />
+                      <span style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '16px',
+                        color: '#6b7280'
+                      }}>
+                        🔍
+                      </span>
+                      {exerciseSearchQuery && (
+                        <button
+                          onClick={() => setExerciseSearchQuery('')}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            fontSize: '18px',
+                            color: '#6b7280',
+                            cursor: 'pointer',
+                            padding: '0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    {exerciseSearchQuery && (
+                      <div style={{
+                        fontSize: '12px',
+                        color: '#6b7280',
+                        marginTop: '4px'
+                      }}>
+                        Found {getFilteredExercises().length} exercise{getFilteredExercises().length !== 1 ? 's' : ''} matching "{exerciseSearchQuery}"
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 {availableExercises.length > 0 ? (
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                    gap: '12px',
-                    maxHeight: '200px',
-                    overflow: 'auto',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '8px',
-                    padding: '16px'
-                  }}>
-                    {availableExercises.map(exercise => (
-                      <div
-                        key={exercise.id}
-                        onClick={() => addExerciseToEditingRoutine(exercise)}
-                        style={{
-                          padding: '12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          backgroundColor: '#f9fafb',
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                      >
-                        <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '4px' }}>
-                          {exercise.name}
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
-                          {exercise.category} • Level {exercise.difficulty_level}
-                        </div>
-                        {exercise.description && (
-                          <div style={{ fontSize: '11px', color: '#9ca3af' }}>
-                            {exercise.description}
+                  getFilteredExercises().length === 0 && exerciseSearchQuery ? (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '40px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      backgroundColor: '#f9fafb',
+                      color: '#6b7280'
+                    }}>
+                      <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+                      <h4 style={{ margin: '0 0 8px 0' }}>No exercises found</h4>
+                      <p style={{ margin: '0', fontSize: '14px' }}>
+                        Try searching with different keywords or clear the search to see all exercises.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                      gap: '12px',
+                      maxHeight: '200px',
+                      overflow: 'auto',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '16px'
+                    }}>
+                      {getFilteredExercises().map(exercise => (
+                        <div
+                          key={exercise.id}
+                          onClick={() => addExerciseToEditingRoutine(exercise)}
+                          style={{
+                            padding: '12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            backgroundColor: '#f9fafb',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                        >
+                          <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '4px' }}>
+                            {exercise.name}
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                            {exercise.category} • Level {exercise.difficulty_level}
+                          </div>
+                          {exercise.description && (
+                            <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                              {exercise.description}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )
                 ) : (
                   <div style={{
                     textAlign: 'center',
@@ -2132,6 +2501,7 @@ export default function DoctorDashboard() {
                     setEditingRoutine(null);
                     setEditingRoutineExercises([]);
                     setAvailableExercises([]);
+                    setExerciseSearchQuery('');
                   }}
                   style={{
                     backgroundColor: '#6b7280',
@@ -2167,14 +2537,14 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* NFT Details Modal */}
-      {selectedNFT && (
+      {/* Edit Patient Modal */}
+      {showEditPatient && editingPatient && (
         <div style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
+          top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0',
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
           display: 'flex',
           alignItems: 'center',
@@ -2184,7 +2554,7 @@ export default function DoctorDashboard() {
         }}>
           <div style={{
             backgroundColor: 'white',
-            borderRadius: '16px',
+            borderRadius: '12px',
             width: '100%',
             maxWidth: '600px',
             maxHeight: '90vh',
@@ -2194,14 +2564,370 @@ export default function DoctorDashboard() {
             {/* Modal Header */}
             <div style={{
               padding: '24px',
-              borderBottom: '1px solid #e2e8f0',
+              borderBottom: '1px solid #e5e7eb',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
               <h2 style={{
-                color: '#374151',
-                fontSize: '20px',
+                color: '#1e40af',
+                fontSize: '24px',
+                fontWeight: '700',
+                margin: '0'
+              }}>
+                Edit Patient: {editingPatient.first_name} {editingPatient.last_name}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowEditPatient(false);
+                  setEditingPatient(null);
+                }}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '24px' }}>
+              {/* Contact Information */}
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{
+                  color: '#374151',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  marginBottom: '16px'
+                }}>
+                  Contact Information
+                </h3>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    color: '#374151',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '8px'
+                  }}>
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={editingPatient.phone || ''}
+                    onChange={(e) => setEditingPatient(prev => prev ? { ...prev, phone: e.target.value } : null)}
+                    placeholder="e.g., (555) 123-4567"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+                  <div style={{ flex: '1' }}>
+                    <label style={{
+                      display: 'block',
+                      color: '#374151',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      marginBottom: '8px'
+                    }}>
+                      Emergency Contact Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingPatient.emergency_contact_name || ''}
+                      onChange={(e) => setEditingPatient(prev => prev ? { ...prev, emergency_contact_name: e.target.value } : null)}
+                      placeholder="Emergency contact name"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '8px',
+                        fontSize: '16px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div style={{ flex: '1' }}>
+                    <label style={{
+                      display: 'block',
+                      color: '#374151',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      marginBottom: '8px'
+                    }}>
+                      Emergency Contact Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={editingPatient.emergency_contact_phone || ''}
+                      onChange={(e) => setEditingPatient(prev => prev ? { ...prev, emergency_contact_phone: e.target.value } : null)}
+                      placeholder="Emergency contact phone"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '8px',
+                        fontSize: '16px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Medical Conditions */}
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{
+                    color: '#374151',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    margin: '0'
+                  }}>
+                    Medical Conditions
+                  </h3>
+                  <button
+                    onClick={addMedicalCondition}
+                    style={{
+                      backgroundColor: '#22c55e',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span>+</span>
+                    Add Condition
+                  </button>
+                </div>
+
+                {editingPatient.medical_conditions && editingPatient.medical_conditions.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {editingPatient.medical_conditions.map((condition, index) => (
+                      <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={condition}
+                          onChange={(e) => updateMedicalCondition(index, e.target.value)}
+                          placeholder="Enter medical condition"
+                          style={{
+                            flex: '1',
+                            padding: '12px',
+                            border: '2px solid #e5e7eb',
+                            borderRadius: '8px',
+                            fontSize: '16px',
+                            outline: 'none'
+                          }}
+                        />
+                        <button
+                          onClick={() => removeMedicalCondition(index)}
+                          style={{
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '20px',
+                    border: '2px dashed #d1d5db',
+                    borderRadius: '8px',
+                    color: '#6b7280'
+                  }}>
+                    No medical conditions recorded. Click "Add Condition" to add one.
+                  </div>
+                )}
+              </div>
+
+              {/* Current Medications */}
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{
+                    color: '#374151',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    margin: '0'
+                  }}>
+                    Current Medications
+                  </h3>
+                  <button
+                    onClick={addCurrentMedication}
+                    style={{
+                      backgroundColor: '#3b82f6',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span>+</span>
+                    Add Medication
+                  </button>
+                </div>
+
+                {editingPatient.current_medications && editingPatient.current_medications.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {editingPatient.current_medications.map((medication, index) => (
+                      <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={medication}
+                          onChange={(e) => updateCurrentMedication(index, e.target.value)}
+                          placeholder="Enter medication name and dosage"
+                          style={{
+                            flex: '1',
+                            padding: '12px',
+                            border: '2px solid #e5e7eb',
+                            borderRadius: '8px',
+                            fontSize: '16px',
+                            outline: 'none'
+                          }}
+                        />
+                        <button
+                          onClick={() => removeCurrentMedication(index)}
+                          style={{
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '20px',
+                    border: '2px dashed #d1d5db',
+                    borderRadius: '8px',
+                    color: '#6b7280'
+                  }}>
+                    No medications recorded. Click "Add Medication" to add one.
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                paddingTop: '24px',
+                borderTop: '1px solid #e5e7eb'
+              }}>
+                <button
+                  onClick={() => {
+                    setShowEditPatient(false);
+                    setEditingPatient(null);
+                  }}
+                  style={{
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={updatePatient}
+                  style={{
+                    backgroundColor: '#1e40af',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Update Patient
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NFT Details Modal */}
+      {selectedNFT && (
+        <div style={{
+          position: 'fixed',
+          top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '24px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h2 style={{
+                color: '#1e40af',
+                fontSize: '24px',
                 fontWeight: '700',
                 margin: '0'
               }}>
@@ -2214,15 +2940,13 @@ export default function DoctorDashboard() {
                   border: 'none',
                   fontSize: '24px',
                   cursor: 'pointer',
-                  color: '#6b7280',
-                  padding: '4px'
+                  color: '#6b7280'
                 }}
               >
                 ✕
               </button>
             </div>
 
-            {/* Modal Content */}
             <div style={{ padding: '24px' }}>
               <div style={{ display: 'flex', gap: '24px', marginBottom: '24px' }}>
                 {/* NFT Image */}
@@ -2360,6 +3084,13 @@ export default function DoctorDashboard() {
           </div>
         </div>
       )}
+
+      {/* Add Custom Exercise Modal */}
+      <AddCustomExerciseModal
+        isOpen={showCustomExerciseModal}
+        onClose={() => setShowCustomExerciseModal(false)}
+        onExerciseAdded={handleCustomExerciseAdded}
+      />
 
       {/* Medical Disclaimer */}
       <div style={{
