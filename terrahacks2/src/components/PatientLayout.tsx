@@ -1,3 +1,4 @@
+import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import PatientSidebar from './PatientSidebar';
@@ -28,6 +29,7 @@ interface PatientData {
 }
 
 export default function PatientLayout({ initialPage = 'workout' }: PatientLayoutProps) {
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [patientRoutines, setPatientRoutines] = useState<any[]>([]);
   const [selectedRoutine, setSelectedRoutine] = useState<any>(null);
@@ -610,7 +612,32 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                                 fontWeight: '600',
                                 margin: '0 0 4px 0'
                               }}>
-                                {exercise.order_in_routine}. {exercise.exercises?.name || 'Exercise'}
+                                {exercise.order_in_routine}. 
+                                <button
+                                  onClick={() => {
+                                    setCurrentPage('workout');
+                                  }}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#1e40af',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    textDecoration: 'underline',
+                                    padding: '0',
+                                    margin: '0 0 0 4px',
+                                    textAlign: 'left'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = '#1d4ed8';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = '#1e40af';
+                                  }}
+                                >
+                                  {exercise.exercises?.name || 'Exercise'}
+                                </button>
                               </h4>
                               <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
                                 {exercise.exercises?.category || 'General'} • Level {exercise.exercises?.difficulty_level || 1}
