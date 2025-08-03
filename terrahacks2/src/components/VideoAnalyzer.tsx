@@ -86,20 +86,48 @@ export default function VideoAnalyzer({ exerciseContext, onBack, onExerciseCompl
       // Check for headers (lines starting with **)
       if (line.match(/^\*\*.*\*\*\s*$/)) {
         const headerText = line.replace(/\*\*/g, '');
+        
+        // Special styling for improvement suggestions and next steps
+        const isImprovement = headerText.includes('Improvement') || headerText.includes('Tips');
+        const isNextSteps = headerText.includes('Next Steps');
+        const isPass = headerText.includes('✅ PASS');
+        const isFail = headerText.includes('❌ FAIL');
+        
+        const backgroundColor = isImprovement ? '#f0f9ff' : 
+                              isNextSteps ? '#f0fdf4' : 
+                              isPass ? '#dcfce7' :
+                              isFail ? '#fef2f2' : 'transparent';
+        
+        const borderColor = isImprovement ? '#0ea5e9' : 
+                           isNextSteps ? '#22c55e' :
+                           isPass ? '#16a34a' :
+                           isFail ? '#dc2626' : 'transparent';
+        
         formattedElements.push(
           <div key={index} style={{
             fontSize: '18px',
             fontWeight: '700',
-            color: '#1e40af',
+            color: isFail ? '#dc2626' : isPass ? '#16a34a' : '#1e40af',
             marginTop: index > 0 ? '20px' : '0',
             marginBottom: '12px',
             display: 'flex',
-            alignItems: 'center'
+            alignItems: 'center',
+            padding: (isImprovement || isNextSteps || isPass || isFail) ? '12px 16px' : '0',
+            backgroundColor,
+            borderLeft: (isImprovement || isNextSteps || isPass || isFail) ? `4px solid ${borderColor}` : 'none',
+            borderRadius: (isImprovement || isNextSteps || isPass || isFail) ? '8px' : '0'
           }}>
             {headerText.includes('Great job') && '🎉 '}
             {headerText.includes('noticed') && '👁️ '}
             {headerText.includes('observations') && '🔍 '}
             {headerText.includes('Tips') && '💡 '}
+            {headerText.includes('Improvement') && '💡 '}
+            {headerText.includes('Next Steps') && '🎯 '}
+            {headerText.includes('Form Assessment') && '📊 '}
+            {headerText.includes('Exercise Evaluation') && '🎯 '}
+            {headerText.includes('Video Analysis') && '📹 '}
+            {headerText.includes('Rep Count') || headerText.includes('Objective Rep') && '🔢 '}
+            {headerText.includes('Encouraging') || headerText.includes('Feedback') && '💬 '}
             {headerText}
           </div>
         );
@@ -112,22 +140,43 @@ export default function VideoAnalyzer({ exerciseContext, onBack, onExerciseCompl
       // Handle bullet points
       if (line.trim().startsWith('- ')) {
         const bulletText = line.replace(/^-\s*/, '');
+        
+        // Check if this bullet point is under improvement suggestions or next steps
+        const prevLines = lines.slice(Math.max(0, index - 5), index);
+        const isUnderImprovement = prevLines.some(prevLine => 
+          prevLine.includes('Improvement') || prevLine.includes('Tips')
+        );
+        const isUnderNextSteps = prevLines.some(prevLine => 
+          prevLine.includes('Next Steps')
+        );
+        
+        const bulletColor = isUnderImprovement ? '#0ea5e9' : 
+                           isUnderNextSteps ? '#22c55e' : '#3b82f6';
+        const bulletIcon = isUnderImprovement ? '💡' : 
+                          isUnderNextSteps ? '🎯' : '•';
+        
         formattedElements.push(
           <div key={index} style={{
             display: 'flex',
             alignItems: 'flex-start',
             marginBottom: '8px',
-            paddingLeft: '16px'
+            paddingLeft: '16px',
+            backgroundColor: isUnderImprovement ? '#f0f9ff' : 
+                           isUnderNextSteps ? '#f0fdf4' : 'transparent',
+            padding: (isUnderImprovement || isUnderNextSteps) ? '8px 16px' : '0 0 0 16px',
+            borderRadius: (isUnderImprovement || isUnderNextSteps) ? '6px' : '0',
+            border: (isUnderImprovement || isUnderNextSteps) ? `1px solid ${bulletColor}20` : 'none'
           }}>
             <span style={{
-              color: '#3b82f6',
+              color: bulletColor,
               marginRight: '8px',
               fontWeight: 'bold',
               fontSize: '16px'
-            }}>•</span>
+            }}>{bulletIcon}</span>
             <span style={{
               color: '#374151',
-              lineHeight: '1.6'
+              lineHeight: '1.6',
+              fontWeight: (isUnderImprovement || isUnderNextSteps) ? '500' : 'normal'
             }}>
               {formatInlineText(bulletText)}
             </span>

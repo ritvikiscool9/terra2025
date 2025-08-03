@@ -225,6 +225,12 @@ Form & Safety: [Was it safe and showed good effort?]` :
 **Final Result: [✅ PASS or ❌ FAIL]**
 [Be encouraging! Only fail for serious safety issues or completely wrong exercise. If they made a good effort and were close to targets, that's a PASS!]
 
+**💡 Improvement Suggestions:**
+[Provide 2-3 specific, actionable tips to improve form, technique, or performance]
+
+**🎯 Next Steps:**
+[Suggest what to focus on in future attempts - progression, modifications, or areas to practice]
+
 **Encouraging Feedback:**
 [Always start with something positive! Then give constructive suggestions if needed.]` :   
 
@@ -242,8 +248,23 @@ Form & Safety: [Was it safe and showed good effort?]` :
 **Final Result: [✅ PASS or ❌ FAIL]**
 [Explain the result based on form and technique]
 
+**💡 Improvement Suggestions:**
+[Provide 2-3 specific, actionable tips for better form or technique. Focus on:
+- Body positioning and alignment
+- Movement speed and control
+- Breathing technique
+- Common mistakes to avoid
+- Equipment positioning if relevant]
+
+**🎯 Next Steps:**
+[Suggest progression or focus areas for future sessions:
+- If they passed: suggest ways to progress (more reps, longer duration, advanced variations)
+- If they failed: suggest what to practice first before trying again
+- Specific exercises or stretches that could help
+- When to attempt the exercise again]
+
 **Feedback:**
-[Provide specific, actionable feedback]`}
+[Provide encouraging and constructive feedback]`}
 
 IMPORTANT RULES:
 - You MUST include either "✅ PASS" or "❌ FAIL" in your response
