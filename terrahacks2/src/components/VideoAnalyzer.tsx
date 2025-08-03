@@ -366,16 +366,72 @@ export default function VideoAnalyzer({ exerciseContext }: VideoAnalyzerProps) {
             <div style={{
               backgroundColor: '#dbeafe',
               color: '#1e40af',
-              padding: '8px 16px',
-              borderRadius: '20px',
-              fontSize: '14px',
+              padding: '12px 20px',
+              borderRadius: '25px',
+              fontSize: '16px',
               fontWeight: '600',
               display: 'inline-block',
-              marginBottom: '16px'
+              marginBottom: '16px',
+              border: '2px solid #3b82f6'
             }}>
-              Recording: {exerciseContext.name}
+              🎯 Recording: {exerciseContext.name}
+              {exerciseContext.category && (
+                <span style={{ 
+                  fontSize: '14px', 
+                  fontWeight: '400',
+                  marginLeft: '8px',
+                  opacity: 0.8
+                }}>
+                  ({exerciseContext.category})
+                </span>
+              )}
             </div>
           )}
+          
+          {/* Exercise Context Details */}
+          {exerciseContext && (
+            <div style={{
+              backgroundColor: '#f0f9ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '20px',
+              textAlign: 'left',
+              fontSize: '14px'
+            }}>
+              <h4 style={{ 
+                color: '#1e40af', 
+                margin: '0 0 12px 0',
+                fontSize: '16px',
+                fontWeight: '600'
+              }}>
+                📋 Exercise Details:
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+                {exerciseContext.description && (
+                  <div style={{ color: '#000000' }}><strong>Description:</strong> {exerciseContext.description}</div>
+                )}
+                {exerciseContext.sets && (
+                  <div style={{ color: '#000000' }}><strong>Sets:</strong> {exerciseContext.sets}</div>
+                )}
+                {exerciseContext.reps && (
+                  <div style={{ color: '#000000' }}><strong>Reps:</strong> {exerciseContext.reps}</div>
+                )}
+                {exerciseContext.duration_seconds && (
+                  <div style={{ color: '#000000' }}><strong>Duration:</strong> {exerciseContext.duration_seconds}s</div>
+                )}
+                {exerciseContext.difficulty_level && (
+                  <div style={{ color: '#000000' }}><strong>Difficulty:</strong> Level {exerciseContext.difficulty_level}</div>
+                )}
+              </div>
+              {exerciseContext.instructions && (
+                <div style={{ marginTop: '12px', padding: '8px', backgroundColor: '#e0f2fe', borderRadius: '6px' }}>
+                  <strong style={{ color: '#000000' }}>Instructions:</strong> <span style={{ color: '#000000' }}>{exerciseContext.instructions}</span>
+                </div>
+              )}
+            </div>
+          )}
+          
           <div style={{
             width: '70px',
             height: '70px',

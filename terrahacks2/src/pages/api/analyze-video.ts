@@ -82,8 +82,11 @@ export default async function handler(
 
     // Detect MIME type if not provided
     const detectedMimeType = mimeType || getMimeTypeFromBase64(videoBase64);
+    console.log('=== VIDEO ANALYSIS REQUEST ===');
     console.log('Detected MIME type:', detectedMimeType);
-    console.log('Exercise context:', exerciseContext?.name || 'None provided');
+    console.log('Exercise context received:', JSON.stringify(exerciseContext, null, 2));
+    console.log('Exercise name:', exerciseContext?.name || 'NO EXERCISE NAME PROVIDED');
+    console.log('===============================');
 
     // Convert base64 to buffer
     const videoBuffer = Buffer.from(videoBase64, 'base64');
@@ -123,41 +126,43 @@ Please analyze the video specifically for this exercise. Pay attention to form, 
       {
         text: `${contextPrompt}As a supportive physical therapy assistant, analyze this exercise video and provide encouraging, constructive feedback. Focus on being helpful and motivational while giving practical advice.
 
-${exerciseContext?.name ? `The patient is working on: "${exerciseContext.name}"
+${exerciseContext?.name ? `The patient was supposed to perform: "${exerciseContext.name}"
 
-Please provide feedback in this friendly, supportive format:
+IMPORTANT: First, carefully observe what exercise the person is actually performing in the video. If they are doing a DIFFERENT exercise than expected, address this immediately in your response.
 
-**🎯 Great job on your ${exerciseContext.name}!**
+Please provide feedback in this format:
 
-**What I noticed:**
-- [Acknowledge what they did well first]
+**🎯 Exercise Analysis:**
+[First identify what exercise they actually performed. If it matches the expected exercise, congratulate them. If it's different, gently point this out]
 
-**Form observations:**
-- [Gentle, constructive feedback about their technique]
-- [Focus on 2-3 key points, not overwhelming them]
+**What I observed:**
+- [Acknowledge their effort and what they did in the video]
+- [If they did the wrong exercise, explain what they did vs what was expected]
 
-**Tips for next time:**
-- [Specific, actionable suggestions to improve]
-- [Keep it simple and encouraging]
+**Form feedback:**
+- [If correct exercise: provide form feedback]
+- [If wrong exercise: suggest how to do the correct exercise]
+
+**Next steps:**
+- [Practical guidance for improvement]
+- [Encouragement to try the correct exercise if needed]
 
 **Keep it up!**
-[End with motivation and encouragement]` : 
+[End with motivation]` : 
 
 `Please analyze this exercise video and provide supportive feedback:
 
-**🎯 Nice work on your exercise session!**
+**🎯 Exercise Analysis:**
+[Identify what exercise they performed]
 
 **What I observed:**
-- [First identify what exercise(s) they performed]
-- [Acknowledge their effort and what they did well]
+- [Acknowledge their effort and technique]
 
 **Form feedback:**
-- [Gentle observations about their technique]
-- [Focus on key areas for improvement]
+- [Provide constructive feedback about their technique]
 
 **Suggestions for improvement:**
 - [2-3 specific, actionable tips]
-- [Keep it encouraging and manageable]
 
 **You're doing great!**
 [End with encouragement]`}
@@ -168,7 +173,8 @@ Remember:
 - Give practical tips they can actually use
 - Acknowledge their effort and progress
 - Keep feedback positive and motivational
-- Avoid overwhelming them with too many corrections at once`
+- Avoid overwhelming them with too many corrections at once
+- If they did the wrong exercise, gently redirect them to the correct one`
       }
     ];
 
