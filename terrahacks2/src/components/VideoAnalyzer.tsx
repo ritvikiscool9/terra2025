@@ -5,7 +5,22 @@ interface AnalysisResponse {
   error?: string;
 }
 
-export default function VideoAnalyzer() {
+interface ExerciseContext {
+  name?: string;
+  description?: string;
+  instructions?: string;
+  category?: string;
+  difficulty_level?: number;
+  sets?: number;
+  reps?: number;
+  duration_seconds?: number;
+}
+
+interface VideoAnalyzerProps {
+  exerciseContext?: ExerciseContext;
+}
+
+export default function VideoAnalyzer({ exerciseContext }: VideoAnalyzerProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +33,105 @@ export default function VideoAnalyzer() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
+
+  // Function to format analysis text with proper styling
+  const formatAnalysisText = (text: string) => {
+    if (!text) return null;
+    
+    // Split text into lines and process each line
+    const lines = text.split('\n');
+    const formattedElements: JSX.Element[] = [];
+    
+    lines.forEach((line, index) => {
+      if (line.trim() === '') {
+        formattedElements.push(<br key={`br-${index}`} />);
+        return;
+      }
+      
+      // Check for headers (lines starting with **)
+      if (line.match(/^\*\*.*\*\*\s*$/)) {
+        const headerText = line.replace(/\*\*/g, '');
+        formattedElements.push(
+          <div key={index} style={{
+            fontSize: '18px',
+            fontWeight: '700',
+            color: '#1e40af',
+            marginTop: index > 0 ? '20px' : '0',
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            {headerText.includes('Great job') && '🎉 '}
+            {headerText.includes('noticed') && '👁️ '}
+            {headerText.includes('observations') && '🔍 '}
+            {headerText.includes('Tips') && '💡 '}
+            {headerText}
+          </div>
+        );
+        return;
+      }
+      
+      // Process bullet points and regular text
+      let processedLine = line;
+      
+      // Handle bullet points
+      if (line.trim().startsWith('- ')) {
+        const bulletText = line.replace(/^-\s*/, '');
+        formattedElements.push(
+          <div key={index} style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            marginBottom: '8px',
+            paddingLeft: '16px'
+          }}>
+            <span style={{
+              color: '#3b82f6',
+              marginRight: '8px',
+              fontWeight: 'bold',
+              fontSize: '16px'
+            }}>•</span>
+            <span style={{
+              color: '#374151',
+              lineHeight: '1.6'
+            }}>
+              {formatInlineText(bulletText)}
+            </span>
+          </div>
+        );
+        return;
+      }
+      
+      // Regular paragraph text
+      if (line.trim()) {
+        formattedElements.push(
+          <p key={index} style={{
+            color: '#374151',
+            lineHeight: '1.6',
+            margin: '0 0 12px 0'
+          }}>
+            {formatInlineText(line)}
+          </p>
+        );
+      }
+    });
+    
+    return <div>{formattedElements}</div>;
+  };
+  
+  // Function to handle inline formatting (bold text, etc.)
+  const formatInlineText = (text: string) => {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={index} style={{ color: '#1e40af', fontWeight: '600' }}>
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return part;
+    });
+  };
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -208,7 +322,8 @@ export default function VideoAnalyzer() {
         },
         body: JSON.stringify({ 
           videoBase64,
-          mimeType: selectedFile.type
+          mimeType: selectedFile.type,
+          exerciseContext
         }),
       });
 
@@ -247,6 +362,20 @@ export default function VideoAnalyzer() {
         border: '1px solid rgba(226, 232, 240, 0.8)'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          {exerciseContext?.name && (
+            <div style={{
+              backgroundColor: '#dbeafe',
+              color: '#1e40af',
+              padding: '8px 16px',
+              borderRadius: '20px',
+              fontSize: '14px',
+              fontWeight: '600',
+              display: 'inline-block',
+              marginBottom: '16px'
+            }}>
+              Recording: {exerciseContext.name}
+            </div>
+          )}
           <div style={{
             width: '70px',
             height: '70px',
@@ -810,13 +939,11 @@ export default function VideoAnalyzer() {
             padding: '24px',
             maxHeight: '500px',
             overflowY: 'auto',
-            whiteSpace: 'pre-wrap',
             fontSize: '15px',
-            lineHeight: '1.7',
-            color: '#2d3748',
-            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+            lineHeight: '1.6',
+            backgroundColor: '#fafbfc'
           }}>
-            {analysis}
+            {formatAnalysisText(analysis)}
           </div>
         </div>
       )}

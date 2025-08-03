@@ -8,6 +8,16 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 interface RequestBody {
   videoBase64: string;
   mimeType?: string;
+  exerciseContext?: {
+    name?: string;
+    description?: string;
+    instructions?: string;
+    category?: string;
+    difficulty_level?: number;
+    sets?: number;
+    reps?: number;
+    duration_seconds?: number;
+  };
 }
 
 interface ResponseData {
@@ -65,7 +75,7 @@ export default async function handler(
     }
 
     // Parse request body
-    const { videoBase64, mimeType }: RequestBody = req.body;
+    const { videoBase64, mimeType, exerciseContext }: RequestBody = req.body;
     if (!videoBase64) {
       return res.status(400).json({ error: 'videoBase64 is required' });
     }
@@ -73,6 +83,7 @@ export default async function handler(
     // Detect MIME type if not provided
     const detectedMimeType = mimeType || getMimeTypeFromBase64(videoBase64);
     console.log('Detected MIME type:', detectedMimeType);
+    console.log('Exercise context:', exerciseContext?.name || 'None provided');
 
     // Convert base64 to buffer
     const videoBuffer = Buffer.from(videoBase64, 'base64');
@@ -83,6 +94,24 @@ export default async function handler(
     // Use gemini-1.5-flash for video understanding (lighter model with higher quotas)
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
+    // Create context-aware prompt
+    let contextPrompt = '';
+    if (exerciseContext?.name) {
+      contextPrompt = `**EXERCISE CONTEXT:**
+The user is performing: "${exerciseContext.name}"
+${exerciseContext.description ? `Description: ${exerciseContext.description}` : ''}
+${exerciseContext.instructions ? `Instructions: ${exerciseContext.instructions}` : ''}
+${exerciseContext.category ? `Category: ${exerciseContext.category}` : ''}
+${exerciseContext.difficulty_level ? `Difficulty Level: ${exerciseContext.difficulty_level}` : ''}
+${exerciseContext.sets ? `Target Sets: ${exerciseContext.sets}` : ''}
+${exerciseContext.reps ? `Target Reps: ${exerciseContext.reps}` : ''}
+${exerciseContext.duration_seconds ? `Target Duration: ${exerciseContext.duration_seconds} seconds` : ''}
+
+Please analyze the video specifically for this exercise. Pay attention to form, technique, and adherence to the prescribed parameters.
+
+`;
+    }
+
     // Create the prompt with video and text parts
     const prompt = [
       {
@@ -92,45 +121,54 @@ export default async function handler(
         }
       },
       {
-        text: `Analyze this exercise video comprehensively. Please follow this structure:
+        text: `${contextPrompt}As a supportive physical therapy assistant, analyze this exercise video and provide encouraging, constructive feedback. Focus on being helpful and motivational while giving practical advice.
 
-**STEP 1: IDENTIFICATION**
-- First, identify what specific exercise(s) or movement(s) are being performed in this video
-- If multiple exercises, identify each one
+${exerciseContext?.name ? `The patient is working on: "${exerciseContext.name}"
 
-**STEP 2: REPETITION/DURATION ANALYSIS**  
-- Count the total number of repetitions for each exercise (if applicable)
-- Or measure the hold duration for isometric exercises (planks, wall sits, etc.)
-- Provide timestamps for each rep or major phases
+Please provide feedback in this friendly, supportive format:
 
-**STEP 3: DETAILED FORM ANALYSIS**
-For each identified exercise, analyze the key technical aspects:
-- Body alignment and posture
-- Range of motion and depth
-- Movement patterns and mechanics  
-- Joint positioning and tracking
-- Core stability and control
-- Breathing patterns (if observable)
-- Tempo and rhythm
+**🎯 Great job on your ${exerciseContext.name}!**
 
-**STEP 4: FORM DEVIATIONS & ISSUES**
-- Identify any form breakdowns or common mistakes
-- Note specific timestamps where issues occur
-- Rate the overall form quality
-- Point out any safety concerns
+**What I noticed:**
+- [Acknowledge what they did well first]
 
-**STEP 5: SPECIFIC RECOMMENDATIONS**
-- Provide targeted improvement suggestions for the identified exercise
-- Include technique cues and corrections
-- Suggest modifications if needed
-- Recommend focus areas for practice
+**Form observations:**
+- [Gentle, constructive feedback about their technique]
+- [Focus on 2-3 key points, not overwhelming them]
 
-**STEP 6: OVERALL ASSESSMENT**
-- Give an overall performance rating
-- Highlight what was done well
-- Prioritize the most important areas for improvement
+**Tips for next time:**
+- [Specific, actionable suggestions to improve]
+- [Keep it simple and encouraging]
 
-Please be specific, detailed, and constructive in your analysis. Focus on actionable feedback that will help improve form and performance.`
+**Keep it up!**
+[End with motivation and encouragement]` : 
+
+`Please analyze this exercise video and provide supportive feedback:
+
+**🎯 Nice work on your exercise session!**
+
+**What I observed:**
+- [First identify what exercise(s) they performed]
+- [Acknowledge their effort and what they did well]
+
+**Form feedback:**
+- [Gentle observations about their technique]
+- [Focus on key areas for improvement]
+
+**Suggestions for improvement:**
+- [2-3 specific, actionable tips]
+- [Keep it encouraging and manageable]
+
+**You're doing great!**
+[End with encouragement]`}
+
+Remember: 
+- Be encouraging and supportive, not clinical
+- Focus on form and technique, not scoring or rating
+- Give practical tips they can actually use
+- Acknowledge their effort and progress
+- Keep feedback positive and motivational
+- Avoid overwhelming them with too many corrections at once`
       }
     ];
 

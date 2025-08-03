@@ -46,6 +46,7 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
   const [editedMedicalCondition, setEditedMedicalCondition] = useState('');
   const [editedMedications, setEditedMedications] = useState<string[]>([]);
   const [isSavingMedical, setIsSavingMedical] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState<any>(null);
 
   useEffect(() => {
     if (currentPage === 'routines') {
@@ -325,7 +326,18 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
   const renderContent = () => {
     switch (currentPage) {
       case 'workout':
-        return <VideoAnalyzer />;
+        const exerciseContext = selectedExercise ? {
+          name: selectedExercise.exercises?.name,
+          description: selectedExercise.exercises?.description,
+          instructions: selectedExercise.exercises?.instructions,
+          category: selectedExercise.exercises?.category,
+          difficulty_level: selectedExercise.exercises?.difficulty_level,
+          sets: selectedExercise.sets,
+          reps: selectedExercise.reps,
+          duration_seconds: selectedExercise.duration_seconds
+        } : undefined;
+        
+        return <VideoAnalyzer exerciseContext={exerciseContext} />;
       case 'routines':
         return (
           <div style={{
@@ -615,6 +627,7 @@ export default function PatientLayout({ initialPage = 'workout' }: PatientLayout
                                 {exercise.order_in_routine}. 
                                 <button
                                   onClick={() => {
+                                    setSelectedExercise(exercise);
                                     setCurrentPage('workout');
                                   }}
                                   style={{
